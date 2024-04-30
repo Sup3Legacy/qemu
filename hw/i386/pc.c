@@ -93,6 +93,7 @@
 #include "hw/i386/kvm/xen_evtchn.h"
 #include "hw/i386/kvm/xen_gnttab.h"
 #include "hw/i386/kvm/xen_xenstore.h"
+#include "hw/misc/mmio_mem.h"
 #include "sysemu/replay.h"
 #include "target/i386/cpu.h"
 #include "e820_memory_layout.h"
@@ -955,6 +956,7 @@ void pc_memory_init(PCMachineState *pcms,
     int linux_boot, i;
     MemoryRegion *option_rom_mr;
     MemoryRegion *ram_below_4g, *ram_above_4g;
+    //MMIOMemState *mmio_mem_dev;
     FWCfgState *fw_cfg;
     MachineState *machine = MACHINE(pcms);
     MachineClass *mc = MACHINE_GET_CLASS(machine);
@@ -963,6 +965,10 @@ void pc_memory_init(PCMachineState *pcms,
     hwaddr maxphysaddr, maxusedaddr;
     hwaddr cxl_base, cxl_resv_end = 0;
     X86CPU *cpu = X86_CPU(first_cpu);
+
+    (MMIOMemState *)mmio_mem_create(0xfffff00);
+    //mmio_mem_dev = (MMIOMemState *)mmio_mem_create(0x0);
+    //mmio_mem_instance_init((Object *)mmio_mem_dev);
 
     assert(machine->ram_size == x86ms->below_4g_mem_size +
                                 x86ms->above_4g_mem_size);

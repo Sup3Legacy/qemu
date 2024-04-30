@@ -44,7 +44,19 @@ static void mmio_mem_write(void *opaque, hwaddr addr, uint64_t val, unsigned int
 
 }
 
+// TODO: dissociate this into Data and Instruction segments
 static const MemoryRegionOps mmio_mem_ops = {
+	.read = mmio_mem_read,
+    .write = mmio_mem_write,
+	.endianness = DEVICE_NATIVE_ENDIAN,
+};
+
+// Configuration MMIO segment
+// Will be used to reconfigure the cache architecture at runtime
+// And also to get stats, e.g. cache miss rates, etc.
+// Could also be used to configure the attacks at runtime
+static const MemoryRegionOps config_reg_ops = {
+    // TODO: write io handler for these
 	.read = mmio_mem_read,
     .write = mmio_mem_write,
 	.endianness = DEVICE_NATIVE_ENDIAN,
@@ -56,6 +68,7 @@ void mmio_mem_instance_init(Object *obj)
 
 	/* allocate memory map region */
 	memory_region_init_io(&s->iomem, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x100);
+	memory_region_init_io(&s->config_reg, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x100);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
 
 	s->chip_id = CHIP_ID;

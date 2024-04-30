@@ -7,6 +7,8 @@ typedef struct MMIOMemState_t {
 	SysBusDevice parent_obj;
 	MemoryRegion iomem;
 	uint64_t chip_id;
+    unsigned int size;
+    char *internal_memory;
 } MMIOMemState;
 
 DeviceState *mmio_mem_create(hwaddr);

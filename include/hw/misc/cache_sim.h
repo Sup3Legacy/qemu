@@ -53,27 +53,13 @@ typedef struct {
     uint8_t block_size_log2;
 } CacheUnit;
 
-bool find_in_cache(CacheUnit *cache, uint64_t address) {
-    uint64_t address_tag = address >> (cache->block_size_log2 + cache->assoc_log2);
-
-    uint64_t set_idx = (address >> cache->assoc_log2) % cache->numer_of_sets;
-    Set *candidate_set = &cache->sets[set_idx];
-
-    for (int i = 0; i < cache->assoc; i++) {
-        Block *candidate_block = &candidate_set->blocks[i];
-        if ((candidate_block->tag == address tag) && (candidate_block->valid)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 typedef struct {
     CacheUnit il1;
     CacheUnit dl1;
     CacheUnit l2;
 } CPUCache;
+
+bool find_in_cache(CacheUnit *cache, uint64_t address);
 
 #endif
 

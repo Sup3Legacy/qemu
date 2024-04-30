@@ -68,7 +68,7 @@ void mmio_mem_instance_init(Object *obj)
 
 	/* allocate memory map region */
 	memory_region_init_io(&s->iomem, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x100);
-	memory_region_init_io(&s->config_reg, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x100);
+	memory_region_init_io(&s->config_reg, obj, &config_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
 
 	s->chip_id = CHIP_ID;

@@ -224,7 +224,16 @@ void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, 
         // this line isn't cached at this level (we thus need to propagate it
         // down a level
 
-        // TODO: propagate write
+        uint64_t block_base = block_base_from_address(cache->block_size, address);
+
+        // NOTE: All in all, the memory backend will receive a write command of
+        // an entire L3 cache block. Is this what really happens? In particular,
+        // if the cache is in writethrough mode, would not only the actual data
+        // segment (1-8 bytes) get written, instead of an entire L3 block?
+        //
+        // This would change A LOT of things in the memory backend after going
+        // through the fault simulator
+        (cache->lower_write)(cache->lower_opaque, block->data, cache->block_size, block_base, is_write_through);
 
         if (block) {
             // Because this write was propagated down to memory, we must unset

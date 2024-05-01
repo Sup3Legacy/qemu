@@ -86,28 +86,8 @@ Block *mru_evict(Cache *cache, Set *set) {
     return max_gen_block;
 }
 
-// Perform the eviction of a block in the cache and write back if needed
-// TODO: determine hos this comes into play w.r.t. the write policy
-Block *evict_and_free(Cache *cache, Set *set) {
-    Block *freed_block;
-    switch (cache->rp) {
-        case LRU:
-            freed_block = lru_evict(cache, set);
-            break;
-
-        case MRU;
-            freed_block = mru_evict(cache, set);
-            break;
-
-        case RANDOM:
-            freed_block = random_evict(cache, set);
-            break;
-            
-        // TODO: implement the other eviction policies
-    }
-
-    // Now, we have the block to evict
-    if (freed_block->is_dirty) {
+void free_and_flush_block(Cache *cache, Set *set, Block *block) {
+    if (block->is_dirty) {
         // Block had been written to, change is held in cache
         // NOTE: This SHOULD NOT happen with WRITETHROUGH policy
 
@@ -115,8 +95,51 @@ Block *evict_and_free(Cache *cache, Set *set) {
         uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
 
         // TODO: check that this is true
-        uint64_t mem_address = ((freed_block->tag << cache->number_of_sets_log2) + set_idx) << cache->block_size_log2;
-        (cache->lower_write_back)(cache->lower_cache, freed_block->data, cache->block_size, mem_address);
+        uint64_t mem_address = ((block->tag << cache->number_of_sets_log2) + set_idx) << cache->block_size_log2;
+
+        // NOTE: this might not trigger a write chain down to memory. If the
+        // cache line stays in cache at a lower level, it only needs to be
+        // propagated down to that level. It will be propagated further down on
+        // eviction of that line.
+        bool is_write_through = (cache->wp == WRITE_THROUGH);
+        (cache->lower_write)(cache->lower_cache, block->data, cache->block_size, mem_address, is_write_through);
+    }
+
+    // Reset block flags to initial state
+    block->is_valid = false;
+    block->is_dirty = false;
+}
+
+// Perform the eviction of a block in the cache and write back if needed
+// TODO: determine hos this comes into play w.r.t. the write policy
+Block *evict_and_free(Cache *cache, Set *set) {
+    Block *evicted_block;
+    switch (cache->rp) {
+        case LRU:
+            evicted_block = lru_evict(cache, set);
+            break;
+
+        case MRU;
+            evicted_block = mru_evict(cache, set);
+            break;
+
+        case RANDOM:
+            evicted_block = random_evict(cache, set);
+            break;
+            
+        // TODO: implement the other eviction policies
+    }
+
+    free_and_flush_block(cache, set, evicted_block);
+
+    return evicted_block;
+}
+
+void flush_cache(Cache *cache) {
+    for (int i = 0; i < cache->number_of_sets; i++) {
+        for int j = 0; j < cache->assoc; j++) {
+            free_and_flush_block(cache, &cache->sets[i], &(cache->sets[i]->blocks[j]));
+        }
     }
 }
 
@@ -142,6 +165,7 @@ Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
         allocated_block = evict_and_free(cache, set);
     }
 
+    // Setup allocated block up for its new use
     allocated_block->tag = tag;
     allocated_block->is_valid = true;
     allocated_block->is_dirty = false;
@@ -165,7 +189,7 @@ void cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t addr
 
     if (!candidate_block) {
         // If line not in cache, fetch from lower
-        //
+
         // TODO: register a cache miss
         Set *destination_set = compute_set(cache, address);
         Block *candidate_block = allocated_block(cache, destination_set, address);
@@ -178,4 +202,29 @@ void cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t addr
     // Now that data is in cache, copy over the data
     char *offset_in_block = candidate_block->data + (address % cache->block_size);
     memcpy(offset_in_block, destination, length);
+}
+
+void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, bool is_write_through) {
+    CacheUnit *cache = (CacheUnit *)opaque;
+
+    // Find correspondign block
+    Block *block = find_in_cache(cache, address);
+
+    if (block) {
+        // This cache level has this address cached
+        // We need to update it
+        char *offset_in_block = block->data + (address % cache->block_size);
+        memcpy(offset_in_block, destination, length);
+
+        // Set block now dirty
+        block->is_dirty = true;
+    }
+
+    if (is_write_through || !block) {
+        // We MUST propagate this write if the policy is set to WRITE_THROUGH or
+        // this line isn't cached at this level (we thus need to propagate it
+        // down a level
+
+        // TODO: propagate write
+    }
 }

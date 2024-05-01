@@ -73,7 +73,7 @@ typedef struct {
     void (*lower_fetch)(void *opaque, char *destination, uint32_t length, uint64_t address);
 
     // Samething for writebacks
-    void (*lower_write_back)(void *opaque, char *source, uint32_t length, uint64_t address);
+    void (*lower_write)(void *opaque, char *source, uint32_t length, uint64_t address, bool write_through);
 
     // All three have to be powers of two
     uint64_t size;

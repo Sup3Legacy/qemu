@@ -47,6 +47,18 @@ typedef struct {
     // TODO: alignment?
     char *cache_memory;
 
+    // Opaque pointer holding a reference to a lower cache level, passed as
+    // first argument to lower_{fetch, write_back}
+    void *lower_cache;
+
+    // Function to call to fetch date from to populate the cache
+    // Will be either the fetch function from the lower cache level or the
+    // memory fetch function (plugged to the DRAM controller ismulator
+    int (*lower_fetch)(void *opaque, char *destination, uint32_t length, uint64_t address);
+
+    // Samething for writebacks
+    int (*lower_write_back)(void *opaque, char *source, uint32_t length, uint64_t address);
+
     // All three have to be powers of two
     uint64_t size;
     uint8_t assoc;
@@ -111,7 +123,13 @@ typedef struct {
     ReplacementPolicy rp;
 } RequestedCaches;
 
-bool find_in_cache(CacheUnit *cache, uint64_t address);
+Block *find_in_cache(CacheUnit *cache, uint64_t address);
+
+static uint64_t block_base_from_address(uint64_t block_size, uint64_t address) {
+    // TODO: check this, I'm not that confident
+    // NOTE: block_size is NOT in log2 form
+    return address & (~ (block_size - 1));
+}
 
 #endif
 

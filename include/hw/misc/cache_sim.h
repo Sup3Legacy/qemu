@@ -68,6 +68,11 @@ typedef struct {
     CacheUnit l2;
     CacheUnit l3;
 
+    // Behaviour toggles
+    bool is_active;
+    bool is_l2_active;
+    bool is_l3_active;
+
     // Cache policies
     // INFO: My guess is, this has to be the same accross all cache levels, so
     // it makes more sense to put it in here.

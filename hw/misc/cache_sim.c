@@ -39,6 +39,13 @@ Block *find_free_block(Cache *cache, Set *set) {
     return NULL;
 }
 
+Block *random_evict(Cache *cache, Set *set) {
+    uint64_t new_value = (RNG_a * set->rng_state + RNG_c) % RNG_m;
+    set->rng_state = new_value;
+
+    return &set->blocks[new_value % cache->assoc];
+}
+
 // Find the block to evict from set according to the LRU policy
 // Also tick an mlru gen and update this block's counter
 Block *lru_evict(Cache *cache, Set *set) {
@@ -91,6 +98,11 @@ Block *evict_and_free(Cache *cache, Set *set) {
         case MRU;
             freed_block = mru_evict(cache, set);
             break;
+
+        case RANDOM:
+            freed_block = random_evict(cache, set);
+            break;
+            
         // TODO: implement the other eviction policies
     }
 
@@ -114,6 +126,9 @@ Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
     // TODO: eviction policy, etc.
     
     // FIXME: should be shifted of block_size_log2 + number_of_sets_log2
+    // NOTE: We could instead shift it by only block_size_log2 (removing the
+    // block offset bits). This would makes things a bit simpler, without
+    // hurting anything because we're storing and handling u64s anyway
     uint64_t tag = address >> (cache->block_size_log2 + cache->number_of_sets_log2);
 
     Block *allocated_block;

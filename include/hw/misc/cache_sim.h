@@ -4,6 +4,12 @@
 #include <inttypes.h>
 #include "qom/object.h"
 
+// https://www.wikiwand.com/en/Linear_congruential_generator#Comparison_with_other_PRNGs
+#define RNG_a 75
+#define RNG_c 74
+#define RNG_m ((1 << 16) + 1)
+#define RNG_init
+
 typedef enum {
     LRU,
     MRU,
@@ -42,6 +48,11 @@ typedef struct {
 
     // Implemented as an uint128_t to avoid oveflows
     uint128_t mlru_gen_counter;
+
+    // TODO: init this a a good value
+    // FIXME: Should this be part of the cahce unit or just set?
+    // Side-channel maybe?
+    uint128_t rng_state;
 } Set;
 
 typedef struct {

@@ -94,15 +94,17 @@ void free_and_flush_block(Cache *cache, Set *set, Block *block) {
         // Hacky but works
         uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
 
-        // TODO: check that this is true
+        // TODO: check that this is right
         uint64_t mem_address = ((block->tag << cache->number_of_sets_log2) + set_idx) << cache->block_size_log2;
 
         // NOTE: this might not trigger a write chain down to memory. If the
         // cache line stays in cache at a lower level, it only needs to be
         // propagated down to that level. It will be propagated further down on
         // eviction of that line.
-        bool is_write_through = (cache->wp == WRITE_THROUGH);
-        (cache->lower_write)(cache->lower_cache, block->data, cache->block_size, mem_address, is_write_through);
+        // 
+        // The write policy is here hard-coded to false as this branch cannot be
+        // executed in a write-through context
+        (cache->lower_write)(cache->lower_cache, block->data, cache->block_size, mem_address, false);
     }
 
     // Reset block flags to initial state
@@ -146,9 +148,6 @@ void flush_cache(Cache *cache) {
 // Allocate block for the line we're about to insert in the cache
 // Inernaly, this takes care of evicting an existing cache line if needed
 Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
-    // TODO: eviction policy, etc.
-    
-    // FIXME: should be shifted of block_size_log2 + number_of_sets_log2
     // NOTE: We could instead shift it by only block_size_log2 (removing the
     // block offset bits). This would makes things a bit simpler, without
     // hurting anything because we're storing and handling u64s anyway
@@ -226,5 +225,11 @@ void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, 
         // down a level
 
         // TODO: propagate write
+
+        if (block) {
+            // Because this write was propagated down to memory, we must unset
+            // its dirty flag
+            block->is_dirty = false;
+        }
     }
 }

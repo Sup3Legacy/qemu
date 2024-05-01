@@ -10,6 +10,7 @@ Set *compute_set(Cache *cache, uint64_t address) {
     return candidate_set;
 }
 
+// Find block associated with address in the cache
 Block *find_in_cache(CacheUnit *cache, uint64_t address) {
     uint64_t address_tag = address >> (cache->block_size_log2 + cache->number_of_sets_log2);
 
@@ -25,6 +26,7 @@ Block *find_in_cache(CacheUnit *cache, uint64_t address) {
     return NULL;
 }
 
+// Finds the (possible) first free block in the set
 Block *find_free_block(Cache *cache, Set *set) {
     for (int i = 0, i < cache->assoc; i++) {
         if (! set->blocks[i].is_valid) {
@@ -37,6 +39,8 @@ Block *find_free_block(Cache *cache, Set *set) {
     return NULL;
 }
 
+// Find the block to evict from set according to the LRU policy
+// Also tick an mlru gen and update this block's counter
 Block *lru_evict(Cache *cache, Set *set) {
     Block *min_gen_block;
     uint128_t min_gen = -1;
@@ -55,6 +59,8 @@ Block *lru_evict(Cache *cache, Set *set) {
     return min_gen_block;
 }
 
+// Find the block to evict from set according to the MRU policy
+// Also tick an mlru gen and update this block's counter
 Block *mru_evict(Cache *cache, Set *set) {
     Block *max_gen_block;
     uint128_t max_gen = 0;
@@ -73,6 +79,8 @@ Block *mru_evict(Cache *cache, Set *set) {
     return max_gen_block;
 }
 
+// Perform the eviction of a block in the cache and write back if needed
+// TODO: determine hos this comes into play w.r.t. the write policy
 Block *evict_and_free(Cache *cache, Set *set) {
     Block *freed_block;
     switch (cache->rp) {
@@ -88,6 +96,9 @@ Block *evict_and_free(Cache *cache, Set *set) {
 
     // Now, we have the block to evict
     if (freed_block->is_dirty) {
+        // Block had been written to, change is held in cache
+        // NOTE: This SHOULD NOT happen with WRITETHROUGH policy
+
         // Hacky but works
         uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
 
@@ -97,6 +108,8 @@ Block *evict_and_free(Cache *cache, Set *set) {
     }
 }
 
+// Allocate block for the line we're about to insert in the cache
+// Inernaly, this takes care of evicting an existing cache line if needed
 Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
     // TODO: eviction policy, etc.
     
@@ -147,7 +160,7 @@ void cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t addr
         (cache->lower_fetch)(cache->lower_cache, candidate_block->data, cache->block_size, block_base);
     }
 
-    // Now that data is in cache, 
+    // Now that data is in cache, copy over the data
     char *offset_in_block = candidate_block->data + (address % cache->block_size);
     memcpy(offset_in_block, destination, length);
 }

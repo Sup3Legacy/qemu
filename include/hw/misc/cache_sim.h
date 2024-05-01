@@ -52,8 +52,6 @@ typedef struct {
     uint8_t assoc;
     uint32_t block_size;
 
-    // Cache policies
-    ReplacementPolicy rp;
 
     // Derived metrics
     uint64_t number_of_sets;
@@ -70,11 +68,11 @@ typedef struct {
     CacheUnit l2;
     CacheUnit l3;
 
-    // Write policy
+    // Cache policies
     // INFO: My guess is, this has to be the same accross all cache levels, so
-    // it makes more sesn to put it in here.
-    // WARN: Same thing for the replacement policy? Probably
+    // it makes more sense to put it in here.
     WritePolicy wp;
+    ReplacementPolicy rp;
 } CPUCache;
 
 // Structure holding the cache model configuration requested from the guest
@@ -105,6 +103,7 @@ typedef struct {
         uint32_t block_size;
     } l3;
     WritePolicy wp;
+    ReplacementPolicy rp;
 } RequestedCaches;
 
 bool find_in_cache(CacheUnit *cache, uint64_t address);

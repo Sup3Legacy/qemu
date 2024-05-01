@@ -28,6 +28,8 @@ typedef struct {
     // level cache/memory
     bool is_dirty;
 
+    uint128_t mlru_gen;
+
     // This points inside the CacheUnit->cache_memory
     // Length is (block_size)
     char *data;
@@ -37,6 +39,9 @@ typedef struct {
     // Length is (assoc)
     Block *blocks;
     // TODO: instrumentation for stats and replacement decisions
+
+    // Implemented as an uint128_t to avoid oveflows
+    uint128_t mlru_gen_counter;
 } Set;
 
 typedef struct {
@@ -54,10 +59,10 @@ typedef struct {
     // Function to call to fetch date from to populate the cache
     // Will be either the fetch function from the lower cache level or the
     // memory fetch function (plugged to the DRAM controller ismulator
-    int (*lower_fetch)(void *opaque, char *destination, uint32_t length, uint64_t address);
+    void (*lower_fetch)(void *opaque, char *destination, uint32_t length, uint64_t address);
 
     // Samething for writebacks
-    int (*lower_write_back)(void *opaque, char *source, uint32_t length, uint64_t address);
+    void (*lower_write_back)(void *opaque, char *source, uint32_t length, uint64_t address);
 
     // All three have to be powers of two
     uint64_t size;
@@ -72,6 +77,7 @@ typedef struct {
     uint8_t size_log2;
     uint8_t assoc_log2;
     uint8_t block_size_log2;
+    uint8_t number_of_sets_log2;
 } CacheUnit;
 
 typedef struct {

@@ -11,7 +11,7 @@ Set *compute_set(Cache *cache, uint64_t address) {
 }
 
 Block *find_in_cache(CacheUnit *cache, uint64_t address) {
-    uint64_t address_tag = address >> (cache->block_size_log2 + cache->assoc_log2);
+    uint64_t address_tag = address >> (cache->block_size_log2 + cache->number_of_sets_log2);
 
     Set *candidate_set = compute_set(cache, address);
 
@@ -37,9 +37,71 @@ Block *find_free_block(Cache *cache, Set *set) {
     return NULL;
 }
 
+Block *lru_evict(Cache *cache, Set *set) {
+    Block *min_gen_block;
+    uint128_t min_gen = -1;
+
+    for (int i = 0; i < cache->assoc; i++) {
+        if (set->blocks[i]->mlru_gen < min_gen) {
+            min_gen_block = &set->blocks[i];
+            min_gen = min_gen_block->mlru_gen;
+        }
+    }
+
+    set->mlru_gen_counter += 1;
+
+    // TODO: also update this upon subsequent access to the block
+    min_gen_block->mlru_gen = set->mlru_gen_counter;
+    return min_gen_block;
+}
+
+Block *mru_evict(Cache *cache, Set *set) {
+    Block *max_gen_block;
+    uint128_t max_gen = 0;
+
+    for (int i = 0; i < cache->assoc; i++) {
+        if (set->blocks[i]->mlru_gen > max_gen) {
+            max_gen_block = &set->blocks[i];
+            max_gen = max_gen_block->mlru_gen;
+        }
+    }
+
+    set->mlru_gen_counter += 1;
+
+    // TODO: also update this upon subsequent access to the block
+    max_gen_block->mlru_gen = set->mlru_gen_counter;
+    return max_gen_block;
+}
+
+Block *evict_and_free(Cache *cache, Set *set) {
+    Block *freed_block;
+    switch (cache->rp) {
+        case LRU:
+            freed_block = lru_evict(cache, set);
+            break;
+
+        case MRU;
+            freed_block = mru_evict(cache, set);
+            break;
+        // TODO: implement the other eviction policies
+    }
+
+    // Now, we have the block to evict
+    if (freed_block->is_dirty) {
+        // Hacky but works
+        uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
+
+        // TODO: check that this is true
+        uint64_t mem_address = ((freed_block->tag << cache->number_of_sets_log2) + set_idx) << cache->block_size_log2;
+        (cache->lower_write_back)(cache->lower_cache, freed_block->data, cache->block_size, mem_address);
+    }
+}
+
 Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
     // TODO: eviction policy, etc.
-    uint64_t tag = address >> (cache->block_size_log2 + cache->assoc_log2);
+    
+    // FIXME: should be shifted of block_size_log2 + number_of_sets_log2
+    uint64_t tag = address >> (cache->block_size_log2 + cache->number_of_sets_log2);
 
     Block *allocated_block;
 
@@ -49,9 +111,7 @@ Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
         // No free block was found
         // We have to evict :>
 
-        // TODO properly evict
-        // TODO: handle writeback upon eviction of dirty block
-        allocated_block = &set->blocks[0];
+        allocated_block = evict_and_free(cache, set);
     }
 
     allocated_block->tag = tag;
@@ -64,7 +124,7 @@ Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
 // We assume that `length` is smaller than this cache's block size.
 // Also, the alignment should be such that blocks do not cross block
 // boundaries of lower cache levels
-int cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t address) {
+void cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t address) {
     // Recast opaque pointer to a cache one
     CacheUnit *cache = (CacheUnit *)opaque;
 
@@ -84,7 +144,7 @@ int cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t addre
 
         uint64_t block_base = block_base_from_address(cache->block_size, address);
 
-        (cache->lower_fetch)(candidate_block->data, cache->block_size, block_base);
+        (cache->lower_fetch)(cache->lower_cache, candidate_block->data, cache->block_size, block_base);
     }
 
     // Now that data is in cache, 

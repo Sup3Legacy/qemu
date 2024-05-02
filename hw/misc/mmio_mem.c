@@ -19,7 +19,7 @@ union uint64_bytes {
 static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
 	MMIOMemState *s = opaque;
 
-    char bytes[8];
+    char bytes[8] = {0};
 
     printf("Received read @%lx with size %x\n", addr, size);
     
@@ -76,8 +76,13 @@ static RequestedCaches cache_request = {
         .assoc = 4,
         .block_size = 64,
     },
+    //.dl1 = {
+    //    .size = 1 * 1024,
+    //    .assoc = 4,
+    //    .block_size = 64,
+    //},
     .dl1 = {
-        .size = 1 * 1024,
+        .size = 4 * 64,
         .assoc = 4,
         .block_size = 64,
     },

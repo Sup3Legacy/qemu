@@ -241,6 +241,8 @@ void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, 
         //
         // This would change A LOT of things in the memory backend after going
         // through the fault simulator
+        // FIXME: this doesn't work if block is NULL. What do we do in this
+        // case? I guess we only propagate the write as it came in all cases
         (cache->lower_write)(cache->lower_opaque, block->data, cache->block_size, block_base, is_write_through);
 
         if (block) {
@@ -311,6 +313,8 @@ int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc
         if (init_set(cache, &cache->sets[i], i)) {
             // If one fails, still go through all sets, to cleanly dealloc
             // everything afterwards
+            // This way, we know that all set->blocks is either NULL or a good
+            // pointer, not garbage
             set_failed = true;
         }
     }

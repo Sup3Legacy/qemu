@@ -203,6 +203,14 @@ void cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t addr
     memcpy(offset_in_block, destination, length);
 }
 
+// Issue a write operation on the cache.
+//
+// If the policy is write-back and the line is present in this cache, we simply
+// apply this write in the cache block. In all other cases, we pass this write
+// forward to the lower cache level.
+//
+// In particular, if the write location is nowhere in the cache, the write
+// directly percolates down to memory.
 void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, bool is_write_through) {
     CacheUnit *cache = (CacheUnit *)opaque;
 
@@ -241,4 +249,57 @@ void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, 
             block->is_dirty = false;
         }
     }
+}
+
+void init_block(Cache *cache, Set *set, Block *block, uint32_t set_id, uint32_t block_id) {
+
+}
+
+void init_set(Cache *cache, Set *set, uint32_t set_id) {
+    // ... initialize set
+
+    for (int i = 0; i < cache->assoc; i++) {
+        init_block(cache, set, &set->blocks[i], set_id, i);
+    }
+
+}
+
+int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc, void *lower_opaque, lower_fetch_t lower_fetch, lower_write_t lower_write) {
+    cache->lower_opaque = lower_opaque;
+    cache->lower_fetch = lower_fetch;
+    cache->lower_write = lower_write;
+
+    cache->assoc = assoc;
+    cache->size = size;
+    cache->block_size = block_size;
+
+    // Derive other fields
+    uint32_t number_of_sets = size / (assoc * block_size);
+    cache->number_of_sets = number_of_sets;
+    // TODO: log2s
+
+
+    for (int i = 0; i < number_of_sets; i++) {
+        init_set(cache, &cache->sets[i], i);
+    }
+
+    return 0;
+
+    error:
+    if (cache->cache_memory) {
+        q_free(cache->cache_memory);
+    }
+    if (cache->sets) {
+        for (int i = 0; i < cache->number_of_sets) {
+            Set *set = &cache->sets[i];
+            if (set->blocks) {
+                q_free(set->blocks);
+                // Don't free the memory segment held by blocks, as it is merely
+                // a segment taken from cache->cache_memory
+            }
+        }
+        q_free(cache->sets);
+    }
+
+    return 1;
 }

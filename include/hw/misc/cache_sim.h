@@ -10,6 +10,10 @@
 #define RNG_m ((1 << 16) + 1)
 #define RNG_init
 
+
+typedef void (*lower_fetch_t)(void *opaque, char *destination, uint32_t length, uint64_t address);
+typedef void (*lower_write_t)(void *opaque, char *source, uint32_t length, uint64_t address, bool write_through);
+
 typedef enum {
     LRU,
     MRU,
@@ -70,10 +74,10 @@ typedef struct {
     // Function to call to fetch date from to populate the cache
     // Will be either the fetch function from the lower cache level or the
     // memory fetch function (plugged to the DRAM controller ismulator
-    void (*lower_fetch)(void *opaque, char *destination, uint32_t length, uint64_t address);
+    lower_fetch_t lower_fetch;
 
     // Samething for writebacks
-    void (*lower_write)(void *opaque, char *source, uint32_t length, uint64_t address, bool write_through);
+    lower_write_t lower_write;
 
     // All three have to be powers of two
     uint64_t size;

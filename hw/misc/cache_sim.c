@@ -47,6 +47,7 @@ static Block *random_evict(Cache *cache, Set *set) {
     uint64_t new_value = (RNG_a * set->rng_state + RNG_c) % RNG_m;
     set->rng_state = new_value;
 
+    printf("Evicting block at index %lx.\n", new_value % cache->assoc);
     return &set->blocks[new_value % cache->assoc];
 }
 
@@ -168,6 +169,7 @@ static Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
         // No free block was found
         // We have to evict :>
 
+        printf("Line eviction needed.\n");
         allocated_block = evict_and_free(cache, set);
     }
 

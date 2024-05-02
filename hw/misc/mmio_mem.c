@@ -82,8 +82,8 @@ static RequestedCaches cache_request = {
     //    .block_size = 64,
     //},
     .dl1 = {
-        .size = 4 * 64,
-        .assoc = 4,
+        .size = 2 * 64,
+        .assoc = 2,
         .block_size = 64,
     },
     .l2 = {

@@ -3,7 +3,7 @@
 #include "hw/sysbus.h" /* provides all sysbus registering func */
 #include "hw/misc/cache_sim.h"
 
-Set *compute_set(Cache *cache, uint64_t address) {
+static Set *compute_set(Cache *cache, uint64_t address) {
     uint64_t set_idx = (address >> cache->assoc_log2) % cache->number_of_sets;
     Set *candidate_set = &cache->sets[set_idx];
 
@@ -11,7 +11,7 @@ Set *compute_set(Cache *cache, uint64_t address) {
 }
 
 // Find block associated with address in the cache
-Block *find_in_cache(CacheUnit *cache, uint64_t address) {
+Block *find_in_cache(Cache *cache, uint64_t address) {
     uint64_t address_tag = address >> (cache->block_size_log2 + cache->number_of_sets_log2);
 
     Set *candidate_set = compute_set(cache, address);
@@ -28,8 +28,8 @@ Block *find_in_cache(CacheUnit *cache, uint64_t address) {
 }
 
 // Finds the (possible) first free block in the set
-Block *find_free_block(Cache *cache, Set *set) {
-    for (int i = 0, i < cache->assoc; i++) {
+static Block *find_free_block(Cache *cache, Set *set) {
+    for (int i = 0; i < cache->assoc; i++) {
         if (! set->blocks[i].is_valid) {
             // We found a free block :o
             return &set->blocks[i];
@@ -40,7 +40,7 @@ Block *find_free_block(Cache *cache, Set *set) {
     return NULL;
 }
 
-Block *random_evict(Cache *cache, Set *set) {
+static Block *random_evict(Cache *cache, Set *set) {
     uint64_t new_value = (RNG_a * set->rng_state + RNG_c) % RNG_m;
     set->rng_state = new_value;
 
@@ -49,12 +49,12 @@ Block *random_evict(Cache *cache, Set *set) {
 
 // Find the block to evict from set according to the LRU policy
 // Also tick an mlru gen and update this block's counter
-Block *lru_evict(Cache *cache, Set *set) {
-    Block *min_gen_block;
+static Block *lru_evict(Cache *cache, Set *set) {
+    Block *min_gen_block = NULL;
     uint128_t min_gen = -1;
 
     for (int i = 0; i < cache->assoc; i++) {
-        if (set->blocks[i]->mlru_gen < min_gen) {
+        if (set->blocks[i].mlru_gen < min_gen) {
             min_gen_block = &set->blocks[i];
             min_gen = min_gen_block->mlru_gen;
         }
@@ -69,12 +69,12 @@ Block *lru_evict(Cache *cache, Set *set) {
 
 // Find the block to evict from set according to the MRU policy
 // Also tick an mlru gen and update this block's counter
-Block *mru_evict(Cache *cache, Set *set) {
-    Block *max_gen_block;
+static Block *mru_evict(Cache *cache, Set *set) {
+    Block *max_gen_block = NULL;
     uint128_t max_gen = 0;
 
     for (int i = 0; i < cache->assoc; i++) {
-        if (set->blocks[i]->mlru_gen > max_gen) {
+        if (set->blocks[i].mlru_gen > max_gen) {
             max_gen_block = &set->blocks[i];
             max_gen = max_gen_block->mlru_gen;
         }
@@ -87,7 +87,7 @@ Block *mru_evict(Cache *cache, Set *set) {
     return max_gen_block;
 }
 
-void free_and_flush_block(Cache *cache, Set *set, Block *block) {
+static void free_and_flush_block(Cache *cache, Set *set, Block *block) {
     if (block->is_dirty) {
         // Block had been written to, change is held in cache
         // NOTE: This SHOULD NOT happen with WRITETHROUGH policy
@@ -114,21 +114,24 @@ void free_and_flush_block(Cache *cache, Set *set, Block *block) {
 }
 
 // Perform the eviction of a block in the cache and write back if needed
-// TODO: determine hos this comes into play w.r.t. the write policy
-Block *evict_and_free(Cache *cache, Set *set) {
+// TODO: determine how this comes into play w.r.t. the write policy
+static Block *evict_and_free(Cache *cache, Set *set) {
     Block *evicted_block;
     switch (cache->rp) {
         case LRU:
             evicted_block = lru_evict(cache, set);
             break;
 
-        case MRU;
+        case MRU:
             evicted_block = mru_evict(cache, set);
             break;
 
         case RANDOM:
             evicted_block = random_evict(cache, set);
             break;
+
+        default:
+            return NULL;
             
         // TODO: implement the other eviction policies
     }
@@ -138,17 +141,17 @@ Block *evict_and_free(Cache *cache, Set *set) {
     return evicted_block;
 }
 
-void flush_cache(Cache *cache) {
+static void flush_cache(Cache *cache) {
     for (int i = 0; i < cache->number_of_sets; i++) {
-        for int j = 0; j < cache->assoc; j++) {
-            free_and_flush_block(cache, &cache->sets[i], &(cache->sets[i]->blocks[j]));
+        for (int j = 0; j < cache->assoc; j++) {
+            free_and_flush_block(cache, &cache->sets[i], &(cache->sets[i].blocks[j]));
         }
     }
 }
 
 // Allocate block for the line we're about to insert in the cache
 // Inernaly, this takes care of evicting an existing cache line if needed
-Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
+static Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
     // NOTE: We could instead shift it by only block_size_log2 (removing the
     // block offset bits). This would makes things a bit simpler, without
     // hurting anything because we're storing and handling u64s anyway
@@ -176,10 +179,11 @@ Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
 // We assume that `length` is smaller than this cache's block size.
 // Also, the alignment should be such that blocks do not cross block
 // boundaries of lower cache levels
-void cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t address) {
+static void cache_read(void *opaque, char *destination, uint32_t length, uint64_t address) {
     // Recast opaque pointer to a cache one
-    CacheUnit *cache = (CacheUnit *)opaque;
+    Cache *cache = (Cache *)opaque;
 
+    printf("Try and read from cache @%lx with size %x.\n", address, length);
 
     // Accesses from the CPU should not cross block lines.
     // WARN: this might happen, e.g. with unaligned accesses
@@ -189,19 +193,25 @@ void cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t addr
 
     if (!candidate_block) {
         // If line not in cache, fetch from lower
+        printf("Data not in cache.\n");
 
         // TODO: register a cache miss
         Set *destination_set = compute_set(cache, address);
-        Block *candidate_block = allocated_block(cache, destination_set, address);
+        candidate_block = allocate_block(cache, destination_set, address);
 
         uint64_t block_base = block_base_from_address(cache->block_size, address);
 
-        (cache->lower_fetch)(cache->lower_cache, candidate_block->data, cache->block_size, block_base);
+        (cache->lower_read)(cache->lower_cache, candidate_block->data, cache->block_size, block_base);
+        printf("Data fetched from lower level cache.\n");
+    } else {
+        printf("Data in cache.\n");
     }
 
     // Now that data is in cache, copy over the data
-    char *offset_in_block = candidate_block->data + (address % cache->block_size);
-    memcpy(offset_in_block, destination, length);
+    char *offset_in_block = (char *)((uint64_t)candidate_block->data + (address % cache->block_size));
+    printf("Going to copy from %lx to %lx.\n", (uint64_t)offset_in_block, (uint64_t)destination);
+    fflush(stdout);
+    memcpy(destination, offset_in_block, length);
 }
 
 // Issue a write operation on the cache.
@@ -212,8 +222,10 @@ void cache_fetch(void *opaque, char *destination, uint32_t length, uint64_t addr
 //
 // In particular, if the write location is nowhere in the cache, the write
 // directly percolates down to memory.
-void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, bool is_write_through) {
-    CacheUnit *cache = (CacheUnit *)opaque;
+static void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, bool is_write_through) {
+    Cache *cache = (Cache *)opaque;
+
+    printf("Try and write from cache @%lx with size %x.\n", address, length);
 
     // Find correspondign block
     Block *block = find_in_cache(cache, address);
@@ -222,14 +234,14 @@ void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, 
         // This cache level has this address cached
         // We need to update it
         char *offset_in_block = block->data + (address % cache->block_size);
-        memcpy(offset_in_block, destination, length);
+        memcpy(offset_in_block, source, length);
 
 
         if (is_write_through) {
             // If write-through, we still propagate the write to lower cache
             // levels, but encompasing a whole block
             uint64_t block_base = block_base_from_address(cache->block_size, address);
-            (cache->lower_write)(cache->lower_opaque, block->data, cache->block_size, block_base, is_write_through);
+            (cache->lower_write)(cache->lower_cache, block->data, cache->block_size, block_base, is_write_through);
 
             // Assuming we broaden the write operation to the whole block, it is
             // now clean.
@@ -242,11 +254,49 @@ void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, 
         }
     } else {
         // Else, we simply propagate the write as-is to the lower level
-        (cache->lower_write)(cache->lower_opaque, source, length, address, is_write_through);
+        (cache->lower_write)(cache->lower_cache, source, length, address, is_write_through);
     }
 }
 
-void init_block(Cache *cache, Set *set, Block *block, uint32_t set_id, uint32_t block_id) {
+static void mem_read(void *opaque, char *destination, uint32_t length, uint64_t address) {
+    // NOTE: At some point, will instead call the memory controller sim...
+
+    printf("Try and read from mem @%lx with size %x.\n", address, length);
+
+    MemBackend *mem = opaque;
+    if (address < mem->offset) {
+        // Read below memory segment
+        return;
+    }
+    if (address + length >= mem->offset + mem->size) {
+        // Read after the memory segment
+        return;
+    }
+
+    printf("Check passed. mem_offset: %lx\n", mem->offset);
+
+    memcpy(destination, (char *)(address - mem->offset + (uint64_t)(mem->data)), length);
+
+    printf("Post-check.\n");
+}
+
+static void mem_write(void *opaque, char *source, uint32_t length, uint64_t address, bool _is_write_through) {
+    MemBackend *mem = opaque;
+
+    printf("Try and write from mem @%lx with size %x.\n", address, length);
+
+    if (address < mem->offset) {
+        // Write below memory segment
+        return;
+    }
+    if (address + length >= mem->offset + mem->size) {
+        // Write after the memory segment
+        return;
+    }
+    memcpy((char *)(address - mem->offset + (uint64_t)(mem->data)), source, length);
+}
+
+static void init_block(Cache *cache, Set *set, Block *block, uint32_t set_id, uint32_t block_id) {
     // Take pointer to cache memory at correct offset
     block->data = &cache->cache_memory[set_id * cache->set_size + block_id * cache->block_size];
     block->is_valid = false;
@@ -255,15 +305,15 @@ void init_block(Cache *cache, Set *set, Block *block, uint32_t set_id, uint32_t 
     block->tag = 0;
 }
 
-int init_set(Cache *cache, Set *set, uint32_t set_id) {
+static int init_set(Cache *cache, Set *set, uint32_t set_id) {
     // ... initialize set
     set->rng_state = RNG_init;
     set->mlru_gen_counter = 0;
 
-    Blcok *blocks = q_alloc(cache->assoc * sizeof(Block));
+    Block *blocks = g_malloc(cache->assoc * sizeof(Block));
     set->blocks = blocks;
 
-    if (!block) 
+    if (!blocks) 
         return 1;
 
     for (int i = 0; i < cache->assoc; i++) {
@@ -273,10 +323,13 @@ int init_set(Cache *cache, Set *set, uint32_t set_id) {
     return 0;
 }
 
-int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc, void *lower_opaque, lower_fetch_t lower_fetch, lower_write_t lower_write) {
-    cache->lower_opaque = lower_opaque;
-    cache->lower_fetch = lower_fetch;
+// TODO: not static
+static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc, ReplacementPolicy rp, void *lower_cache, lower_read_t lower_read, lower_write_t lower_write) {
+    cache->lower_cache = lower_cache;
+    cache->lower_read = lower_read;
     cache->lower_write = lower_write;
+
+    cache->rp = rp;
 
     cache->assoc = assoc;
     cache->size = size;
@@ -289,13 +342,13 @@ int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc
     // TODO: log2s
 
     // Allocate bulk cache memory
-    char *cache_memory = q_alloc(size);
+    char *cache_memory = g_malloc(size);
     cache->cache_memory = cache_memory;
     if (!cache_memory) 
         goto error;
 
     // Allcoate array of sets
-    Set *sets = q_alloc(number_of_sets * sizeof(Set));
+    Set *sets = g_malloc(number_of_sets * sizeof(Set));
     cache->sets = sets;
     if (!sets) 
         goto error;
@@ -320,19 +373,154 @@ int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc
     error:
     // TODO: move this out in a standalone `deinit` function
     if (cache->cache_memory) {
-        q_free(cache->cache_memory);
+        g_free(cache->cache_memory);
     }
     if (cache->sets) {
-        for (int i = 0; i < cache->number_of_sets) {
+        for (int i = 0; i < cache->number_of_sets; i++) {
             Set *set = &cache->sets[i];
             if (set->blocks) {
-                q_free(set->blocks);
+                g_free(set->blocks);
                 // Don't free the memory segment held by blocks, as it is merely
                 // a segment taken from cache->cache_memory
             }
         }
-        q_free(cache->sets);
+        g_free(cache->sets);
     }
 
     return 1;
+}
+
+static int setup_mem_backend(MemBackend *mem, uint64_t size, uint64_t offset) {
+    mem->size = size;
+    mem->offset = offset;
+
+    char *data = g_malloc(size);
+    mem->data = data;
+    if (!data) {
+        printf("Could not allocate memory backend memory.\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+int setup_caches(CacheStruct *caches, RequestedCaches *request) {
+    Cache *il1 = &caches->il1;
+    Cache *dl1 = &caches->dl1;
+    Cache *l2 = &caches->l2;
+    Cache *l3 = &caches->l3;
+
+    MemBackend *mem = &caches->mem;
+
+    // Initialize memory backend
+    if (setup_mem_backend(mem, request->mem_size, request->mem_offset)) {
+        return 1;
+    }
+
+    int enabled_caches[3];
+    int nb_enabled_caches = 0;
+    int current_cache = 0;
+
+    if (request->l1_enable)
+        enabled_caches[nb_enabled_caches++] = 1;
+
+    if (request->l2.enable)
+        enabled_caches[nb_enabled_caches++] = 2;
+
+    if (request->l3.enable)
+        enabled_caches[nb_enabled_caches++] = 3;
+
+    if (request->l1_enable) {
+        current_cache++;
+
+        void *next_opaque = NULL;
+        lower_read_t next_read;
+        lower_write_t next_write;
+
+        if (current_cache < nb_enabled_caches) {
+            // There is a cache afterwards
+            switch (enabled_caches[current_cache]) {
+                // NOTE: one has to hold
+                case 2:
+                    next_opaque = l2;
+                    break;
+                case 3:
+                    next_opaque = l3;
+                    break;
+            }
+            next_read = cache_read;
+            next_write = cache_write;
+        } else {
+            // Memory just after
+            next_opaque = mem;
+            next_read = mem_read;
+            next_write = mem_write;
+        }
+
+        setup_cache(il1, request->il1.size, request->il1.block_size, request->il1.assoc, request->rp, next_opaque, next_read, next_write);
+        setup_cache(dl1, request->dl1.size, request->dl1.block_size, request->dl1.assoc, request->rp, next_opaque, next_read, next_write);
+    }
+
+    if (request->l2.enable) {
+        current_cache++;
+
+        void *next_opaque = NULL;
+        lower_read_t next_read;
+        lower_write_t next_write;
+
+        if (current_cache < nb_enabled_caches) {
+            // There is a cache afterwards
+            switch (enabled_caches[current_cache]) {
+                case 3:
+                    next_opaque = l3;
+                    break;
+            }
+            next_read = cache_read;
+            next_write = cache_write;
+        } else {
+            // Memory just after
+            next_opaque = mem;
+            next_read = mem_read;
+            next_write = mem_write;
+        }
+
+        setup_cache(l2, request->l2.size, request->l2.block_size, request->l2.assoc, request->rp, next_opaque, next_read, next_write);
+    }
+
+    if (request->l3.enable) {
+        current_cache++;
+
+        void *next_opaque;
+        lower_read_t next_read;
+        lower_write_t next_write;
+
+        // Memory just after
+        next_opaque = mem;
+        next_read = mem_read;
+        next_write = mem_write;
+
+        setup_cache(l3, request->l3.size, request->l3.block_size, request->l3.assoc, request->rp, next_opaque, next_read, next_write);
+    }
+
+    // Populate the methods and opaque pointers
+    caches->read_fct = cache_read;
+    caches->write_fct = cache_write;
+    if (request->l1_enable) {
+        caches->entry_point_instruction = il1;
+        caches->entry_point_data = dl1;
+    } else if (request->l2.enable) {
+        caches->entry_point_instruction = l2;
+        caches->entry_point_data = l2;
+    } else if (request->l3.enable) {
+        caches->entry_point_instruction = l3;
+        caches->entry_point_data = l3;
+    } else {
+        // Replace the cache methods with the memory one
+        caches->read_fct = mem_read;
+        caches->write_fct = mem_write;
+        caches->entry_point_instruction = mem;
+        caches->entry_point_data = mem;
+    }
+
+    return 0;
 }

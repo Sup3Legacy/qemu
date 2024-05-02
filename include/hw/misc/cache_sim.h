@@ -4,14 +4,16 @@
 #include <inttypes.h>
 #include "qom/object.h"
 
+typedef unsigned __int128 uint128_t;
+
 // https://www.wikiwand.com/en/Linear_congruential_generator#Comparison_with_other_PRNGs
 #define RNG_a 75
 #define RNG_c 74
 #define RNG_m ((1 << 16) + 1)
-#define RNG_init
+#define RNG_init 12321
 
 
-typedef void (*lower_fetch_t)(void *opaque, char *destination, uint32_t length, uint64_t address);
+typedef void (*lower_read_t)(void *opaque, char *destination, uint32_t length, uint64_t address);
 typedef void (*lower_write_t)(void *opaque, char *source, uint32_t length, uint64_t address, bool write_through);
 
 typedef enum {
@@ -40,7 +42,7 @@ typedef struct {
 
     uint128_t mlru_gen;
 
-    // This points inside the CacheUnit->cache_memory
+    // This points inside the Cache->cache_memory
     // Length is (block_size)
     char *data;
 } Block;
@@ -74,7 +76,7 @@ typedef struct {
     // Function to call to fetch date from to populate the cache
     // Will be either the fetch function from the lower cache level or the
     // memory fetch function (plugged to the DRAM controller ismulator
-    lower_fetch_t lower_fetch;
+    lower_read_t lower_read;
 
     // Samething for writebacks
     lower_write_t lower_write;
@@ -84,6 +86,7 @@ typedef struct {
     uint8_t assoc;
     uint32_t block_size;
 
+    ReplacementPolicy rp;
 
     // Derived metrics
     uint64_t number_of_sets;
@@ -94,13 +97,22 @@ typedef struct {
     uint8_t assoc_log2;
     uint8_t block_size_log2;
     uint8_t number_of_sets_log2;
-} CacheUnit;
+} Cache;
+
+// Temporary backend to test the caches
+typedef struct {
+    uint64_t size;
+    // Address of the first byte in memory
+    uint64_t offset;
+    char *data;
+} MemBackend;
 
 typedef struct {
-    CacheUnit il1;
-    CacheUnit dl1;
-    CacheUnit l2;
-    CacheUnit l3;
+    Cache il1;
+    Cache dl1;
+    Cache l2;
+    Cache l3;
+    MemBackend mem;
 
     // Behaviour toggles
     bool is_active;
@@ -112,19 +124,22 @@ typedef struct {
     // it makes more sense to put it in here.
     WritePolicy wp;
     ReplacementPolicy rp;
-} CPUCache;
+
+    void *entry_point_instruction;
+    void *entry_point_data;
+    lower_read_t read_fct;
+    lower_write_t write_fct;
+} CacheStruct;
 
 // Structure holding the cache model configuration requested from the guest
 // kernel
 typedef struct {
     struct {
-        bool enable;
         uint64_t size;
         uint8_t assoc;
         uint32_t block_size;
     } il1;
     struct {
-        bool enable;
         uint64_t size;
         uint8_t assoc;
         uint32_t block_size;
@@ -141,17 +156,24 @@ typedef struct {
         uint8_t assoc;
         uint32_t block_size;
     } l3;
+    // Enables both the Data and Instruction L1 cache
+    bool l1_enable;
+    bool enable;
+    uint64_t mem_size;
+    uint64_t mem_offset;
     WritePolicy wp;
     ReplacementPolicy rp;
 } RequestedCaches;
 
-Block *find_in_cache(CacheUnit *cache, uint64_t address);
+Block *find_in_cache(Cache *cache, uint64_t address);
 
 static uint64_t block_base_from_address(uint64_t block_size, uint64_t address) {
     // TODO: check this, I'm not that confident
     // NOTE: block_size is NOT in log2 form
     return address & (~ (block_size - 1));
 }
+
+int setup_caches(CacheStruct *caches, RequestedCaches *request);
 
 #endif
 

@@ -2,6 +2,7 @@
 #define HW_MMIO_MEM_H
 
 #include "qom/object.h"
+#include "hw/misc/cache_sim.h"
 
 typedef struct MMIOMemState_t {
 	SysBusDevice parent_obj;
@@ -9,7 +10,8 @@ typedef struct MMIOMemState_t {
 	MemoryRegion config_reg;
 	uint64_t chip_id;
     unsigned int size;
-    char *internal_memory;
+
+    CacheStruct caches;
 } MMIOMemState;
 
 DeviceState *mmio_mem_create(hwaddr);

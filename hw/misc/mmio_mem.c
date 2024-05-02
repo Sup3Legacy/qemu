@@ -18,28 +18,30 @@ union uint64_bytes {
 
 static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
 	MMIOMemState *s = opaque;
-    union uint64_bytes un;
 
-    un.integer = 0x0123456789ABCDEF;
+    char bytes[8];
 
     printf("Received read @%lx with size %x\n", addr, size);
     
     // INFO: for now, only handle `data` read, not `instruction` ones
-    (s->caches.read_fct)(s->caches.entry_point_data, &un.bytes[8 - size], size, addr);
+    (s->caches.read_fct)(s->caches.entry_point_data, bytes, size, addr);
 
-    printf("Read: %lX.\n", un.integer);
+    uint64_t ret = from_bytes(bytes);
 
-	return un.integer;
+    printf("Read: %lX.\n", ret);
+
+	return ret;
 }
 
 static void mmio_mem_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
 	MMIOMemState *s = opaque;
-    union uint64_bytes un;
-    un.integer = val;
+    char bytes[8];
+
+    to_bytes(val, bytes);
 
     printf("Received write @%lx with size %x\n", addr, size);
 
-    (s->caches.write_fct)(s->caches.entry_point_data, &un.bytes[8 - size], size, addr, s->caches.wp);
+    (s->caches.write_fct)(s->caches.entry_point_data, bytes, size, addr, s->caches.wp);
 }
 
 // TODO: dissociate this into Data and Instruction segments

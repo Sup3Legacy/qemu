@@ -4,7 +4,7 @@
 #include "hw/misc/cache_sim.h"
 
 static Set *compute_set(Cache *cache, uint64_t address) {
-    uint64_t set_idx = (address >> cache->assoc_log2) % cache->number_of_sets;
+    uint64_t set_idx = (address >> (cache->assoc_log2 + cache->block_size_log2)) % cache->number_of_sets;
     Set *candidate_set = &cache->sets[set_idx];
 
     return candidate_set;
@@ -12,7 +12,7 @@ static Set *compute_set(Cache *cache, uint64_t address) {
 
 // Find block associated with address in the cache
 Block *find_in_cache(Cache *cache, uint64_t address) {
-    uint64_t address_tag = address >> (cache->block_size_log2 + cache->number_of_sets_log2);
+    uint64_t address_tag = address >> (cache->block_size_log2);
 
     Set *candidate_set = compute_set(cache, address);
 
@@ -20,6 +20,9 @@ Block *find_in_cache(Cache *cache, uint64_t address) {
         Block *candidate_block = &candidate_set->blocks[i];
         if ((candidate_block->tag == address_tag) && (candidate_block->is_valid)) {
             // TODO: Maybe we can update the MLRU generation here
+            //printf("Found block of index %d, tag %ld, block_size_log2 %d, address %ld.\n", i, address_tag, cache->block_size_log2, address);
+            //printf("assoc_log2 %d, size_log2 %d, block_size %d.\n", cache->assoc_log2, cache->size_log2, cache->block_size);
+            //printf("truc %d.\n", log2i(64));
             return candidate_block;
         }
     }
@@ -96,7 +99,7 @@ static void free_and_flush_block(Cache *cache, Set *set, Block *block) {
         uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
 
         // TODO: check that this is right
-        uint64_t mem_address = ((block->tag << cache->number_of_sets_log2) + set_idx) << cache->block_size_log2;
+        uint64_t mem_address = ((block->tag) + set_idx) << cache->block_size_log2;
 
         // NOTE: this might not trigger a write chain down to memory. If the
         // cache line stays in cache at a lower level, it only needs to be
@@ -155,7 +158,7 @@ static Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
     // NOTE: We could instead shift it by only block_size_log2 (removing the
     // block offset bits). This would makes things a bit simpler, without
     // hurting anything because we're storing and handling u64s anyway
-    uint64_t tag = address >> (cache->block_size_log2 + cache->number_of_sets_log2);
+    uint64_t tag = address >> (cache->block_size_log2);
 
     Block *allocated_block;
 
@@ -183,7 +186,7 @@ static void cache_read(void *opaque, char *destination, uint32_t length, uint64_
     // Recast opaque pointer to a cache one
     Cache *cache = (Cache *)opaque;
 
-    printf("Try and read from cache @%lx with size %x.\n", address, length);
+    //printf("Try and read from cache @%lx with size %x.\n", address, length);
 
     // Accesses from the CPU should not cross block lines.
     // WARN: this might happen, e.g. with unaligned accesses
@@ -199,18 +202,21 @@ static void cache_read(void *opaque, char *destination, uint32_t length, uint64_
         Set *destination_set = compute_set(cache, address);
         candidate_block = allocate_block(cache, destination_set, address);
 
-        uint64_t block_base = block_base_from_address(cache->block_size, address);
+        uint64_t block_base = block_base_from_address(cache->block_size_log2, address);
 
         (cache->lower_read)(cache->lower_cache, candidate_block->data, cache->block_size, block_base);
-        printf("Data fetched from lower level cache.\n");
+        //printf("Data fetched from lower level cache.\n");
     } else {
-        printf("Data in cache.\n");
+        //printf("Data in cache.\n");
     }
 
     // Now that data is in cache, copy over the data
     char *offset_in_block = (char *)((uint64_t)candidate_block->data + (address % cache->block_size));
-    printf("Going to copy from %lx to %lx.\n", (uint64_t)offset_in_block, (uint64_t)destination);
-    fflush(stdout);
+    //printf("Going to copy from %lx to %lx with length %x.\n", (uint64_t)offset_in_block, (uint64_t)destination, length);
+    for (int i = 0; i < cache->block_size; i++) {
+        //printf("%x", (uint8_t)candidate_block->data[i]);
+    }
+    //printf("\n");
     memcpy(destination, offset_in_block, length);
 }
 
@@ -225,7 +231,7 @@ static void cache_read(void *opaque, char *destination, uint32_t length, uint64_
 static void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, bool is_write_through) {
     Cache *cache = (Cache *)opaque;
 
-    printf("Try and write from cache @%lx with size %x.\n", address, length);
+    //printf("Try and write from cache @%lx with size %x.\n", address, length);
 
     // Find correspondign block
     Block *block = find_in_cache(cache, address);
@@ -233,7 +239,7 @@ static void cache_write(void *opaque, char *source, uint32_t length, uint64_t ad
     if (block) {
         // This cache level has this address cached
         // We need to update it
-        char *offset_in_block = block->data + (address % cache->block_size);
+        char *offset_in_block = (char *)((uint64_t)block->data + (address % cache->block_size));
         memcpy(offset_in_block, source, length);
 
 
@@ -273,11 +279,11 @@ static void mem_read(void *opaque, char *destination, uint32_t length, uint64_t 
         return;
     }
 
-    printf("Check passed. mem_offset: %lx\n", mem->offset);
+    //printf("Check passed. mem_offset: %lx\n", mem->offset);
 
     memcpy(destination, (char *)(address - mem->offset + (uint64_t)(mem->data)), length);
 
-    printf("Post-check.\n");
+    //printf("Post-check.\n");
 }
 
 static void mem_write(void *opaque, char *source, uint32_t length, uint64_t address, bool _is_write_through) {
@@ -404,6 +410,11 @@ static int setup_mem_backend(MemBackend *mem, uint64_t size, uint64_t offset) {
     if (!data) {
         printf("Could not allocate memory backend memory.\n");
         return 1;
+    }
+
+    // TEMP:
+    for (int i = 0; i < size; i++) {
+        data[i] = 0x42;
     }
 
     return 0;

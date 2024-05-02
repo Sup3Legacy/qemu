@@ -13,9 +13,7 @@ typedef unsigned __int128 uint128_t;
 #define RNG_init 12321
 
 static inline uint8_t log2i(uint64_t x) {
-    assert(x > 0);
-
-    return sizeof(uint64_t) * 8 - __builtin_clz(x) - 1;
+    return sizeof(uint64_t) * 8 - __builtin_clz(x) - 1 - 32;
 }
 
 typedef void (*lower_read_t)(void *opaque, char *destination, uint32_t length, uint64_t address);
@@ -172,10 +170,25 @@ typedef struct {
 
 Block *find_in_cache(Cache *cache, uint64_t address);
 
-static uint64_t block_base_from_address(uint64_t block_size, uint64_t address) {
+static uint64_t block_base_from_address(uint64_t block_size_log2, uint64_t address) {
     // TODO: check this, I'm not that confident
     // NOTE: block_size is NOT in log2 form
-    return address & (~ (block_size - 1));
+    //return address & (~ (block_size - 1));
+    return (address >> block_size_log2) << block_size_log2;
+}
+
+static void to_bytes(uint64_t val, char *bytes) {
+    for (int i = 0; i < 8; i++) {
+        bytes[i] = (val >> (i * 8)) % (1 << 8);
+    }
+}
+
+static uint64_t from_bytes(char *bytes) {
+    uint64_t acc = 0;
+    for (int i = 0; i < 8; i++) {
+        acc = (acc << 8) + bytes[7 - i];
+    }
+    return acc;
 }
 
 int setup_caches(CacheStruct *caches, RequestedCaches *request);

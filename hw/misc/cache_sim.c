@@ -252,16 +252,30 @@ void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, 
 }
 
 void init_block(Cache *cache, Set *set, Block *block, uint32_t set_id, uint32_t block_id) {
-
+    // Take pointer to cache memory at correct offset
+    block->data = &cache->cache_memory[set_id * cache->set_size + block_id * cache->block_size];
+    block->is_valid = false;
+    block->is_dirty = false;
+    block->mlru_gen = 0;
+    block->tag = 0;
 }
 
-void init_set(Cache *cache, Set *set, uint32_t set_id) {
+int init_set(Cache *cache, Set *set, uint32_t set_id) {
     // ... initialize set
+    set->rng_state = RNG_init;
+    set->mlru_gen_counter = 0;
+
+    Blcok *blocks = q_alloc(cache->assoc * sizeof(Block));
+    set->blocks = blocks;
+
+    if (!block) 
+        return 1;
 
     for (int i = 0; i < cache->assoc; i++) {
         init_block(cache, set, &set->blocks[i], set_id, i);
     }
 
+    return 0;
 }
 
 int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc, void *lower_opaque, lower_fetch_t lower_fetch, lower_write_t lower_write) {
@@ -276,16 +290,38 @@ int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc
     // Derive other fields
     uint32_t number_of_sets = size / (assoc * block_size);
     cache->number_of_sets = number_of_sets;
+    cache->set_size = assoc * block_size;
     // TODO: log2s
 
+    // Allocate bulk cache memory
+    char *cache_memory = q_alloc(size);
+    cache->cache_memory = cache_memory;
+    if (!cache_memory) 
+        goto error;
 
+    // Allcoate array of sets
+    Set *sets = q_alloc(number_of_sets * sizeof(Set));
+    cache->sets = sets;
+    if (!sets) 
+        goto error;
+
+    // Init all sets
+    bool set_failed = false;
     for (int i = 0; i < number_of_sets; i++) {
-        init_set(cache, &cache->sets[i], i);
+        if (init_set(cache, &cache->sets[i], i)) {
+            // If one fails, still go through all sets, to cleanly dealloc
+            // everything afterwards
+            set_failed = true;
+        }
     }
+
+    if (set_failed)
+        goto error;
 
     return 0;
 
     error:
+    // TODO: move this out in a standalone `deinit` function
     if (cache->cache_memory) {
         q_free(cache->cache_memory);
     }

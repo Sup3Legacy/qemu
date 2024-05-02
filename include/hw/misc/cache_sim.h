@@ -87,6 +87,7 @@ typedef struct {
 
     // Derived metrics
     uint64_t number_of_sets;
+    uint64_t set_size;
 
     // log2s
     uint8_t size_log2;

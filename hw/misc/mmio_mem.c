@@ -20,12 +20,14 @@ static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
 	MMIOMemState *s = opaque;
     union uint64_bytes un;
 
+    un.integer = 0x0123456789ABCDEF;
+
     printf("Received read @%lx with size %x\n", addr, size);
     
     // INFO: for now, only handle `data` read, not `instruction` ones
     (s->caches.read_fct)(s->caches.entry_point_data, &un.bytes[8 - size], size, addr);
 
-    printf("Read: %lx.\n", un.integer);
+    printf("Read: %lX.\n", un.integer);
 
 	return un.integer;
 }

@@ -12,6 +12,11 @@ typedef unsigned __int128 uint128_t;
 #define RNG_m ((1 << 16) + 1)
 #define RNG_init 12321
 
+static inline uint8_t log2i(uint64_t x) {
+    assert(x > 0);
+
+    return sizeof(uint64_t) * 8 - __builtin_clz(x) - 1;
+}
 
 typedef void (*lower_read_t)(void *opaque, char *destination, uint32_t length, uint64_t address);
 typedef void (*lower_write_t)(void *opaque, char *source, uint32_t length, uint64_t address, bool write_through);

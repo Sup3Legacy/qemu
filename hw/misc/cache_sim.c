@@ -340,6 +340,11 @@ static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_
     cache->number_of_sets = number_of_sets;
     cache->set_size = assoc * block_size;
     // TODO: log2s
+    
+    cache->size_log2 = log2i(size);
+    cache->assoc_log2 = log2i(assoc);
+    cache->block_size_log2 = log2i(block_size);
+    cache->number_of_sets_log2 = log2i(number_of_sets);
 
     // Allocate bulk cache memory
     char *cache_memory = g_malloc(size);

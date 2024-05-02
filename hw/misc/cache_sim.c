@@ -19,6 +19,7 @@ Block *find_in_cache(CacheUnit *cache, uint64_t address) {
     for (int i = 0; i < cache->assoc; i++) {
         Block *candidate_block = &candidate_set->blocks[i];
         if ((candidate_block->tag == address_tag) && (candidate_block->is_valid)) {
+            // TODO: Maybe we can update the MLRU generation here
             return candidate_block;
         }
     }

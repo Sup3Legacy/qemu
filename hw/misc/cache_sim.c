@@ -223,33 +223,25 @@ void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, 
         char *offset_in_block = block->data + (address % cache->block_size);
         memcpy(offset_in_block, destination, length);
 
-        // Set block now dirty
-        block->is_dirty = true;
-    }
 
-    if (is_write_through || !block) {
-        // We MUST propagate this write if the policy is set to WRITE_THROUGH or
-        // this line isn't cached at this level (we thus need to propagate it
-        // down a level
+        if (is_write_through) {
+            // If write-through, we still propagate the write to lower cache
+            // levels, but encompasing a whole block
+            uint64_t block_base = block_base_from_address(cache->block_size, address);
+            (cache->lower_write)(cache->lower_opaque, block->data, cache->block_size, block_base, is_write_through);
 
-        uint64_t block_base = block_base_from_address(cache->block_size, address);
-
-        // NOTE: All in all, the memory backend will receive a write command of
-        // an entire L3 cache block. Is this what really happens? In particular,
-        // if the cache is in writethrough mode, would not only the actual data
-        // segment (1-8 bytes) get written, instead of an entire L3 block?
-        //
-        // This would change A LOT of things in the memory backend after going
-        // through the fault simulator
-        // FIXME: this doesn't work if block is NULL. What do we do in this
-        // case? I guess we only propagate the write as it came in all cases
-        (cache->lower_write)(cache->lower_opaque, block->data, cache->block_size, block_base, is_write_through);
-
-        if (block) {
-            // Because this write was propagated down to memory, we must unset
-            // its dirty flag
+            // Assuming we broaden the write operation to the whole block, it is
+            // now clean.
+            // NOTE: If we switch to only propagate the initial write segment,
+            // we have to keep the dirty flag
             block->is_dirty = false;
+        } else {
+            // Set block now dirty
+            block->is_dirty = true;
         }
+    } else {
+        // Else, we simply propagate the write as-is to the lower level
+        (cache->lower_write)(cache->lower_opaque, source, length, address, is_write_through);
     }
 }
 

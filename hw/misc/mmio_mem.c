@@ -19,7 +19,7 @@ union uint64_bytes {
 static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
 	MMIOMemState *s = opaque;
 
-    char bytes[8] = {0};
+    uint8_t bytes[8] = {0};
 
     printf("Received read @%lx with size %x\n", addr, size);
     
@@ -30,18 +30,25 @@ static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
 
     printf("Read: %lX.\n", ret);
 
+    //printf("Bytes: ");
+
+    //for (int i = 0; i < 8; i++) {
+    //    printf("%x ", (char)bytes[i]);
+    //}
+    //printf("\n");
+
 	return ret;
 }
 
 static void mmio_mem_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
 	MMIOMemState *s = opaque;
-    char bytes[8];
+    uint8_t bytes[8];
 
     to_bytes(val, bytes);
 
     printf("Received write @%lx with size %x\n", addr, size);
 
-    (s->caches.write_fct)(s->caches.entry_point_data, bytes, size, addr, s->caches.wp);
+    (s->caches.write_fct)(s->caches.entry_point_data, bytes, size, addr, s->caches.wp == WRITE_THROUGH);
 }
 
 // TODO: dissociate this into Data and Instruction segments
@@ -69,7 +76,8 @@ static RequestedCaches cache_request = {
     .mem_size = 0x8000,
     .mem_offset = 0,
     // .mem_offset = 0xfffff00,
-    .wp = WRITE_BACK,
+    .wp = WRITE_THROUGH,
+    //.wp = WRITE_BACK,
     .rp = RANDOM,
     .il1 = {
         .size = 1 * 1024,

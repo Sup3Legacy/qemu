@@ -16,8 +16,8 @@ static inline uint8_t log2i(uint64_t x) {
     return sizeof(uint64_t) * 8 - __builtin_clz(x) - 1 - 32;
 }
 
-typedef void (*lower_read_t)(void *opaque, char *destination, uint32_t length, uint64_t address);
-typedef void (*lower_write_t)(void *opaque, char *source, uint32_t length, uint64_t address, bool write_through);
+typedef void (*lower_read_t)(void *opaque, uint8_t *destination, uint32_t length, uint64_t address);
+typedef void (*lower_write_t)(void *opaque, uint8_t *source, uint32_t length, uint64_t address, bool write_through);
 
 typedef enum {
     LRU,
@@ -47,7 +47,7 @@ typedef struct {
 
     // This points inside the Cache->cache_memory
     // Length is (block_size)
-    char *data;
+    uint8_t *data;
 } Block;
 
 typedef struct {
@@ -70,7 +70,7 @@ typedef struct {
 
     // Array holding the cache line data
     // TODO: alignment?
-    char *cache_memory;
+    uint8_t *cache_memory;
 
     // Opaque pointer holding a reference to a lower cache level, passed as
     // first argument to lower_{fetch, write_back}
@@ -177,13 +177,13 @@ static uint64_t block_base_from_address(uint64_t block_size_log2, uint64_t addre
     return (address >> block_size_log2) << block_size_log2;
 }
 
-static void to_bytes(uint64_t val, char *bytes) {
+static void to_bytes(uint64_t val, uint8_t *bytes) {
     for (int i = 0; i < 8; i++) {
         bytes[i] = (val >> (i * 8)) % (1 << 8);
     }
 }
 
-static uint64_t from_bytes(char *bytes) {
+static uint64_t from_bytes(uint8_t *bytes) {
     uint64_t acc = 0;
     for (int i = 0; i < 8; i++) {
         acc = (acc << 8) + bytes[7 - i];

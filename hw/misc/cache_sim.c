@@ -184,7 +184,7 @@ static Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
 // We assume that `length` is smaller than this cache's block size.
 // Also, the alignment should be such that blocks do not cross block
 // boundaries of lower cache levels
-static void cache_read(void *opaque, char *destination, uint32_t length, uint64_t address) {
+static void cache_read(void *opaque, uint8_t *destination, uint32_t length, uint64_t address) {
     // Recast opaque pointer to a cache one
     Cache *cache = (Cache *)opaque;
 
@@ -230,13 +230,24 @@ static void cache_read(void *opaque, char *destination, uint32_t length, uint64_
 //
 // In particular, if the write location is nowhere in the cache, the write
 // directly percolates down to memory.
-static void cache_write(void *opaque, char *source, uint32_t length, uint64_t address, bool is_write_through) {
+static void cache_write(void *opaque, uint8_t *source, uint32_t length, uint64_t address, bool is_write_through) {
     Cache *cache = (Cache *)opaque;
 
-    //printf("Try and write from cache @%lx with size %x.\n", address, length);
+    //printf("Try and write to cache @%lx with size %x.\n", address, length);
 
     // Find correspondign block
     Block *block = find_in_cache(cache, address);
+
+    if (!block && !is_write_through) {
+        // If line not in cache, fetch from lower
+
+        Set *destination_set = compute_set(cache, address);
+        block = allocate_block(cache, destination_set, address);
+
+        uint64_t block_base = block_base_from_address(cache->block_size_log2, address);
+
+        (cache->lower_read)(cache->lower_cache, block->data, cache->block_size, block_base);
+    }
 
     if (block) {
         // This cache level has this address cached
@@ -258,6 +269,9 @@ static void cache_write(void *opaque, char *source, uint32_t length, uint64_t ad
             block->is_dirty = false;
         } else {
             // Set block now dirty
+            if (!block->is_dirty) {
+                printf("Marking block dirty.\n");
+            }
             block->is_dirty = true;
         }
     } else {
@@ -266,7 +280,7 @@ static void cache_write(void *opaque, char *source, uint32_t length, uint64_t ad
     }
 }
 
-static void mem_read(void *opaque, char *destination, uint32_t length, uint64_t address) {
+static void mem_read(void *opaque, uint8_t *destination, uint32_t length, uint64_t address) {
     // NOTE: At some point, will instead call the memory controller sim...
 
     printf("Try and read from mem @%lx with size %x.\n", address, length);
@@ -288,10 +302,10 @@ static void mem_read(void *opaque, char *destination, uint32_t length, uint64_t 
     //printf("Post-check.\n");
 }
 
-static void mem_write(void *opaque, char *source, uint32_t length, uint64_t address, bool _is_write_through) {
+static void mem_write(void *opaque, uint8_t *source, uint32_t length, uint64_t address, bool _is_write_through) {
     MemBackend *mem = opaque;
 
-    printf("Try and write from mem @%lx with size %x.\n", address, length);
+    printf("Try and write to mem @%lx with size %x.\n", address, length);
 
     if (address < mem->offset) {
         // Write below memory segment
@@ -355,7 +369,7 @@ static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_
     cache->number_of_sets_log2 = log2i(number_of_sets);
 
     // Allocate bulk cache memory
-    char *cache_memory = g_malloc(size);
+    uint8_t *cache_memory = g_malloc(size);
     cache->cache_memory = cache_memory;
     if (!cache_memory) 
         goto error;

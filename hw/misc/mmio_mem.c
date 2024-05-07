@@ -57,12 +57,16 @@ static const MemoryRegionOps mmio_mem_ops = {
  * Cache configuration MMIO segment
  */
 
+// INFO: This isn't very useful to implement, as this configuration is done by
+// the guest kernel; so it can simply inspect its own requested cache
+// configuration.
 static uint64_t mmio_cache_config_read(void *opaque, hwaddr addr, unsigned int size) {
 	//MMIOMemState *s = opaque;
 
     return 0;
 }
 
+// Write to the configuration request of a single cache
 static void mmio_single_cache_config_write(SingleCacheConfigRequest *creq, hwaddr addr, uint64_t val) {
     switch (addr) {
         case 0:
@@ -208,7 +212,7 @@ void mmio_mem_instance_init(Object *obj)
 	/* allocate memory map region */
     // FIXME: This size won't be changed after initialization, so
     // cache_request->
-	memory_region_init_io(&s->iomem, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x100);
+	memory_region_init_io(&s->iomem, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x1000);
 	memory_region_init_io(&s->cache_config_reg, obj, &cache_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	memory_region_init_io(&s->fault_config_reg, obj, &fault_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
@@ -218,7 +222,7 @@ void mmio_mem_instance_init(Object *obj)
     // TODO: remove
     s->size = 0x100;
 
-    // TODO: this will go at some point
+    // TEMP: this will go at some point
     setup_caches(&s->caches, &cache_request);
 }
 

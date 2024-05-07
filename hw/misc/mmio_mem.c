@@ -123,7 +123,7 @@ static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, uns
 // Will be used to reconfigure the cache architecture at runtime
 // And also to get stats, e.g. cache miss rates, etc.
 // Could also be used to configure the attacks at runtime
-static const MemoryRegionOps config_reg_ops = {
+static const MemoryRegionOps cache_reg_ops = {
 	.read = mmio_cache_config_read,
     .write = mmio_cache_config_write,
 	.endianness = DEVICE_NATIVE_ENDIAN,
@@ -196,7 +196,7 @@ void mmio_mem_instance_init(Object *obj)
 
 	/* allocate memory map region */
 	memory_region_init_io(&s->iomem, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x100);
-	memory_region_init_io(&s->cache_config_reg, obj, &config_reg_ops, s, TYPE_MMIO_MEM, 0x100);
+	memory_region_init_io(&s->cache_config_reg, obj, &cache_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	memory_region_init_io(&s->fault_config_reg, obj, &fault_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
 

@@ -436,11 +436,28 @@ static int setup_mem_backend(MemBackend *mem, uint64_t size, uint64_t offset) {
     return 0;
 }
 
+void flush_caches(CacheStruct *caches) {
+    if (caches->il1.enable) {
+        // NOTE: il1 and dl1 are always enabled together
+        flush_cache(&caches->il1);
+        flush_cache(&caches->dl1);
+    }
+    if (caches->l2.enable)
+        flush_cache(&caches->l2);
+    if (caches->l3.enable)
+        flush_cache(&caches->l3);
+}
+
 int setup_caches(CacheStruct *caches, RequestedCaches *request) {
     Cache *il1 = &caches->il1;
     Cache *dl1 = &caches->dl1;
     Cache *l2 = &caches->l2;
     Cache *l3 = &caches->l3;
+
+    il1->enable = request->l1_enable;
+    dl1->enable = request->l1_enable;
+    l2->enable = request->l2.enable;
+    l3->enable = request->l3.enable;
 
     MemBackend *mem = &caches->mem;
 

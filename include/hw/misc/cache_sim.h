@@ -65,6 +65,8 @@ typedef struct {
 } Set;
 
 typedef struct {
+    bool enable;
+    
     // Length is (size / (assoc * block_size))
     Set *sets;
 
@@ -181,6 +183,8 @@ static uint64_t from_bytes(uint8_t *bytes) {
 }
 
 int setup_caches(CacheStruct *caches, RequestedCaches *request);
+
+void flush_caches(CacheStruct *caches);
 
 #endif
 

@@ -92,10 +92,13 @@ static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, uns
             req->l1_enable = ((val & 0xff) == 1);
             break;
         case 2:
-            // TODO: (re)init caches
+            // (re)init caches
+            // TODO: free memory if reiniting
+            setup_caches(&s->caches, &s->cache_config_req);
             break;
         case 3:
-            // TODO: flush caches to memory backend
+            // Flush all caches to main memory
+            flush_caches(&s->caches);
             break;
         case 4:
             req->mem_size = val;
@@ -213,7 +216,8 @@ void mmio_mem_instance_init(Object *obj)
     // TODO: remove
     s->size = 0x100;
 
-    // setup_caches(&s->caches, &cache_request);
+    // TODO: this will go at some point
+    setup_caches(&s->caches, &cache_request);
 }
 
 /* create a new type to define the info related to our device */

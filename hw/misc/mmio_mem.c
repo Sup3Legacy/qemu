@@ -91,6 +91,12 @@ static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, uns
         case 1:
             req->l1_enable = ((val & 0xff) == 1);
             break;
+        case 2:
+            // TODO: (re)init caches
+            break;
+        case 3:
+            // TODO: flush caches to memory backend
+            break;
         case 4:
             req->mem_size = val;
             break;
@@ -195,6 +201,8 @@ void mmio_mem_instance_init(Object *obj)
 	MMIOMemState *s = MMIO_MEM(obj);
 
 	/* allocate memory map region */
+    // FIXME: This size won't be changed after initialization, so
+    // cache_request->
 	memory_region_init_io(&s->iomem, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x100);
 	memory_region_init_io(&s->cache_config_reg, obj, &cache_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	memory_region_init_io(&s->fault_config_reg, obj, &fault_reg_ops, s, TYPE_MMIO_MEM, 0x100);
@@ -205,7 +213,7 @@ void mmio_mem_instance_init(Object *obj)
     // TODO: remove
     s->size = 0x100;
 
-    setup_caches(&s->caches, &cache_request);
+    // setup_caches(&s->caches, &cache_request);
 }
 
 /* create a new type to define the info related to our device */

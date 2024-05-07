@@ -75,16 +75,16 @@ static void mmio_single_cache_config_write(SingleCacheConfigRequest *creq, hwadd
     switch (addr) {
         case 0:
             creq->enable = ((val & 0xff) == 1);
-            return;
+            break;
         case 4:
             req->size = val;
-            return;
+            break;
         case 8:
             req->assoc = val;
-            return;
+            break;
         case 12:
             req->block_size = val;
-            return;
+            break;
     }
 }
 
@@ -95,38 +95,36 @@ static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, uns
     switch (addr) {
         case 0:
             req->enable = ((val & 0xff) == 1);
-            return;
+            break;
         case 1:
             req->l1_enable = ((val & 0xff) == 1);
-            return;
+            break;
         case 4:
             req->mem_size = val;
-            return;
+            break;
         case 8:
             req->mem_offset = val;
-            return;
+            break;
         case 12:
             req->wp = ((val & 0xff) == 0 ? WRITE_BACK : WRITE_THROUGH);
-            return;
+            break;
         case 16:
             char rp = val & 0xff;
             req->rp = (rp == 0 ? RANDOM : (rp == 1 ? LRU : MRU));
-            return;
+            break;
         case 20:
             mmio_single_cache_config_write(&req->il1, addr - 20, val);
-            return;
+            break;
         case 24:
             mmio_single_cache_config_write(&req->dl1, addr - 24, val);
-            return;
+            break;
         case 28:
             mmio_single_cache_config_write(&req->l2, addr - 28, val);
-            return;
+            break;
         case 32:
             mmio_single_cache_config_write(&req->l3, addr - 32, val);
-            return;
+            break;
     }
-
-    return;
 }
 
 // Configuration MMIO segment

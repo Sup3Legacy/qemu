@@ -7,7 +7,8 @@
 typedef struct MMIOMemState_t {
 	SysBusDevice parent_obj;
 	MemoryRegion iomem;
-	MemoryRegion config_reg;
+	MemoryRegion cache_config_reg;
+	MemoryRegion fault_config_reg;
 	uint64_t chip_id;
     unsigned int size;
 

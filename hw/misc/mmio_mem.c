@@ -10,7 +10,6 @@ DECLARE_INSTANCE_CHECKER(MMIOMemState, MMIO_MEM, TYPE_MMIO_MEM)
 #define REG_ID 	0x0
 #define CHIP_ID	0xBA000001
 
-// WARN: endianness: we assume a little-endian host platform
 union uint64_bytes {
     uint64_t integer;
     char bytes[8];
@@ -33,13 +32,6 @@ static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
     uint64_t ret = from_bytes(bytes);
 
     printf("Read: %lX.\n", ret);
-
-    //printf("Bytes: ");
-
-    //for (int i = 0; i < 8; i++) {
-    //    printf("%x ", (char)bytes[i]);
-    //}
-    //printf("\n");
 
 	return ret;
 }
@@ -66,7 +58,7 @@ static const MemoryRegionOps mmio_mem_ops = {
  */
 
 static uint64_t mmio_cache_config_read(void *opaque, hwaddr addr, unsigned int size) {
-	MMIOMemState *s = opaque;
+	//MMIOMemState *s = opaque;
 
     return 0;
 }
@@ -77,13 +69,13 @@ static void mmio_single_cache_config_write(SingleCacheConfigRequest *creq, hwadd
             creq->enable = ((val & 0xff) == 1);
             break;
         case 4:
-            req->size = val;
+            creq->size = val;
             break;
         case 8:
-            req->assoc = val;
+            creq->assoc = val;
             break;
         case 12:
-            req->block_size = val;
+            creq->block_size = val;
             break;
     }
 }
@@ -142,13 +134,13 @@ static const MemoryRegionOps config_reg_ops = {
  */
 
 static uint64_t mmio_fault_config_read(void *opaque, hwaddr addr, unsigned int size) {
-	MMIOMemState *s = opaque;
+	//MMIOMemState *s = opaque;
 
     return 0;
 }
 
 static void mmio_fault_config_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
-	MMIOMemState *s = opaque;
+	//MMIOMemState *s = opaque;
 
     return;
 }
@@ -204,7 +196,8 @@ void mmio_mem_instance_init(Object *obj)
 
 	/* allocate memory map region */
 	memory_region_init_io(&s->iomem, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x100);
-	memory_region_init_io(&s->config_reg, obj, &config_reg_ops, s, TYPE_MMIO_MEM, 0x100);
+	memory_region_init_io(&s->cache_config_reg, obj, &config_reg_ops, s, TYPE_MMIO_MEM, 0x100);
+	memory_region_init_io(&s->fault_config_reg, obj, &fault_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
 
 	s->chip_id = CHIP_ID;

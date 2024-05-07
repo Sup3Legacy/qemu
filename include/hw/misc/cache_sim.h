@@ -134,31 +134,20 @@ typedef struct {
     lower_write_t write_fct;
 } CacheStruct;
 
+typedef struct {
+    bool enable;
+    uint64_t size;
+    uint8_t assoc;
+    uint32_t block_size;
+} SingleCacheConfigRequest;
+
 // Structure holding the cache model configuration requested from the guest
 // kernel
 typedef struct {
-    struct {
-        uint64_t size;
-        uint8_t assoc;
-        uint32_t block_size;
-    } il1;
-    struct {
-        uint64_t size;
-        uint8_t assoc;
-        uint32_t block_size;
-    } dl1;
-    struct {
-        bool enable;
-        uint64_t size;
-        uint8_t assoc;
-        uint32_t block_size;
-    } l2;
-    struct {
-        bool enable;
-        uint64_t size;
-        uint8_t assoc;
-        uint32_t block_size;
-    } l3;
+    SingleCacheConfigRequest il1;
+    SingleCacheConfigRequest dl1;
+    SingleCacheConfigRequest l2;
+    SingleCacheConfigRequest l3;
     // Enables both the Data and Instruction L1 cache
     bool l1_enable;
     bool enable;

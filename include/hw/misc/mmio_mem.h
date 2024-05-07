@@ -11,6 +11,7 @@ typedef struct MMIOMemState_t {
 	uint64_t chip_id;
     unsigned int size;
 
+    RequestedCaches cache_config_req;
     CacheStruct caches;
 } MMIOMemState;
 

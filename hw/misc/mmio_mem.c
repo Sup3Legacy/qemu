@@ -16,6 +16,10 @@ union uint64_bytes {
     char bytes[8];
 };
 
+/* 
+ * Simulated memory MMIO region
+ */
+
 static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
 	MMIOMemState *s = opaque;
 
@@ -51,25 +55,113 @@ static void mmio_mem_write(void *opaque, hwaddr addr, uint64_t val, unsigned int
     (s->caches.write_fct)(s->caches.entry_point_data, bytes, size, addr, s->caches.wp == WRITE_THROUGH);
 }
 
-// TODO: dissociate this into Data and Instruction segments
 static const MemoryRegionOps mmio_mem_ops = {
 	.read = mmio_mem_read,
     .write = mmio_mem_write,
 	.endianness = DEVICE_NATIVE_ENDIAN,
 };
 
+/*
+ * Cache configuration MMIO segment
+ */
+
+static uint64_t mmio_cache_config_read(void *opaque, hwaddr addr, unsigned int size) {
+	MMIOMemState *s = opaque;
+
+    return 0;
+}
+
+static void mmio_single_cache_config_write(SingleCacheConfigRequest *creq, hwaddr addr, uint64_t val) {
+    switch (addr) {
+        case 0:
+            creq->enable = ((val & 0xff) == 1);
+            return;
+        case 4:
+            req->size = val;
+            return;
+        case 8:
+            req->assoc = val;
+            return;
+        case 12:
+            req->block_size = val;
+            return;
+    }
+}
+
+static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
+	MMIOMemState *s = opaque;
+    RequestedCaches *req = &s->cache_config_req;
+
+    switch (addr) {
+        case 0:
+            req->enable = ((val & 0xff) == 1);
+            return;
+        case 1:
+            req->l1_enable = ((val & 0xff) == 1);
+            return;
+        case 4:
+            req->mem_size = val;
+            return;
+        case 8:
+            req->mem_offset = val;
+            return;
+        case 12:
+            req->wp = ((val & 0xff) == 0 ? WRITE_BACK : WRITE_THROUGH);
+            return;
+        case 16:
+            char rp = val & 0xff;
+            req->rp = (rp == 0 ? RANDOM : (rp == 1 ? LRU : MRU));
+            return;
+        case 20:
+            mmio_single_cache_config_write(&req->il1, addr - 20, val);
+            return;
+        case 24:
+            mmio_single_cache_config_write(&req->dl1, addr - 24, val);
+            return;
+        case 28:
+            mmio_single_cache_config_write(&req->l2, addr - 28, val);
+            return;
+        case 32:
+            mmio_single_cache_config_write(&req->l3, addr - 32, val);
+            return;
+    }
+
+    return;
+}
+
 // Configuration MMIO segment
 // Will be used to reconfigure the cache architecture at runtime
 // And also to get stats, e.g. cache miss rates, etc.
 // Could also be used to configure the attacks at runtime
 static const MemoryRegionOps config_reg_ops = {
-    // TODO: write io handler for these
-	.read = mmio_mem_read,
-    .write = mmio_mem_write,
+	.read = mmio_cache_config_read,
+    .write = mmio_cache_config_write,
 	.endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-// TEMP: This is staticcally defined until we make it runtime-configurable
+/* 
+ * Fault configuration MMIO segment
+ */
+
+static uint64_t mmio_fault_config_read(void *opaque, hwaddr addr, unsigned int size) {
+	MMIOMemState *s = opaque;
+
+    return 0;
+}
+
+static void mmio_fault_config_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
+	MMIOMemState *s = opaque;
+
+    return;
+}
+
+static const MemoryRegionOps fault_reg_ops = {
+	.read = mmio_fault_config_read,
+    .write = mmio_fault_config_write,
+	.endianness = DEVICE_NATIVE_ENDIAN,
+};
+
+// TEMP: This is statically defined until we make it runtime-configurable
 static RequestedCaches cache_request = {
     .enable = true,
     .l1_enable = true,

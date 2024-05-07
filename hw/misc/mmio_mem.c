@@ -94,10 +94,12 @@ static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, uns
         case 2:
             // (re)init caches
             // TODO: free memory if reiniting
+            printf("Reseting caches on guest request.\n");
             setup_caches(&s->caches, &s->cache_config_req);
             break;
         case 3:
             // Flush all caches to main memory
+            printf("Flushing all caches on guest request.\n");
             flush_caches(&s->caches);
             break;
         case 4:
@@ -113,16 +115,16 @@ static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, uns
             char rp = val & 0xff;
             req->rp = (rp == 0 ? RANDOM : (rp == 1 ? LRU : MRU));
             break;
-        case 20:
+        case 32:
             mmio_single_cache_config_write(&req->il1, addr - 20, val);
             break;
-        case 24:
+        case 48:
             mmio_single_cache_config_write(&req->dl1, addr - 24, val);
             break;
-        case 28:
+        case 64:
             mmio_single_cache_config_write(&req->l2, addr - 28, val);
             break;
-        case 32:
+        case 80:
             mmio_single_cache_config_write(&req->l3, addr - 32, val);
             break;
     }

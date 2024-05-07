@@ -16,7 +16,7 @@ typedef struct MMIOMemState_t {
     CacheStruct caches;
 } MMIOMemState;
 
-DeviceState *mmio_mem_create(hwaddr);
+DeviceState *mmio_mem_create(hwaddr, hwaddr);
 void mmio_mem_instance_init(Object *);
 
 #endif

@@ -216,7 +216,10 @@ void mmio_mem_instance_init(Object *obj)
 	memory_region_init_io(&s->cache_config_reg, obj, &cache_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	memory_region_init_io(&s->fault_config_reg, obj, &fault_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
+	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->cache_config_reg);
+    // TODO: same thing for the fautl config region
 
+    // TODO: remove
 	s->chip_id = CHIP_ID;
 
     // TODO: remove
@@ -244,10 +247,11 @@ type_init(mmio_mem_register_types)
 /*
  * Create the device.
  */
-DeviceState *mmio_mem_create(hwaddr addr)
+DeviceState *mmio_mem_create(hwaddr mem_addr, hwaddr config_addr)
 {
 	DeviceState *dev = qdev_new(TYPE_MMIO_MEM);
 	sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
-	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, addr);
+	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, mem_addr);
+	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 1, config_addr);
 	return dev;
 }

@@ -3,6 +3,9 @@
 
 #include "qom/object.h"
 #include "hw/misc/cache_sim.h"
+#include "hw/misc/mem_controller.h"
+#include "hw/misc/mem_backend.h"
+#include "hw/misc/mem_fault.h"
 
 typedef struct MMIOMemState_t {
 	SysBusDevice parent_obj;
@@ -14,6 +17,10 @@ typedef struct MMIOMemState_t {
 
     RequestedCaches cache_config_req;
     CacheStruct caches;
+
+    MemController mem_controller;
+    MemBackend mem_backend;
+    FaultHandler fault_handler;
 } MMIOMemState;
 
 DeviceState *mmio_mem_create(hwaddr, hwaddr);

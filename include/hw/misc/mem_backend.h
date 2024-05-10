@@ -4,6 +4,10 @@
 #include <inttypes.h>
 #include "qom/object.h"
 
+typedef struct {
+
+} MemBackend;
+
 #endif
 
 

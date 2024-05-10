@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include "qom/object.h"
+#include "hw/misc/mem_fault.h"
 
 typedef struct {
     uint64_t size;

@@ -29,6 +29,20 @@ typedef struct {
 
 } MemController;
 
+// FIXME: Already defined in cache_sim.h, we should merge these implementations
+static inline uint8_t log2i(uint64_t x) {
+    return sizeof(uint64_t) * 8 - __builtin_clz(x) - 1 - 32;
+}
+
+// Derives the log2 fields
+static void fill_log2s(MemTopology *topo) {
+    topo->channels_log2 = log2i(topo->channels);
+    topo->ranks_log2 = log2i(topo->ranks);
+    topo->groups_log2 = log2i(topo->groups);
+    topo->banks_log2 = log2i(topo->banks);
+    topo->tows_log2 = log2i(topo->rows);
+}
+
 /* 
  * DRamsim provides a way to configure the linear-to-topology mapping
  * in such a way: "ro ch ra ba bg co"

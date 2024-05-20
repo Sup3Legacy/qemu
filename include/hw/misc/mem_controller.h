@@ -63,42 +63,6 @@ static inline uint8_t log2i(uint64_t x) {
     return sizeof(uint64_t) * 8 - __builtin_clz(x) - 1 - 32;
 }
 
-// Derives the log2 fields
-static void fill_log2s(MemTopology *topo) {
-    topo->channels_log2 = log2i(topo->channels);
-    topo->ranks_log2 = log2i(topo->ranks);
-    topo->groups_log2 = log2i(topo->groups);
-    topo->banks_log2 = log2i(topo->banks);
-    topo->rows_log2 = log2i(topo->rows);
-    topo->column_width_log2 = log2i(topo->column_width);
-}
-
-// CONTRACT: assumes `topo`'s log2s have been filled
-static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
-    int8_t offset = 0;
-
-    // Compute all offsets
-    // NOTE: Currently hardcoded as: "ro ch ra ba bg co"
-    offsets->column_off = offset;
-    offset += topo->column_width_log2;
-    offsets->group_off = offset;
-    offset += topo->groups_log2;
-    offsets->bank_off = offset;
-    offset += topo->banks_log2;
-    offsets->rank_off = offset;
-    offset += topo->ranks_log2;
-    offsets->channel_off = offset;
-    offset += topo->channels_log2;
-    offsets->row_off = offset;
-
-    // Compute all masks
-    offsets->channel_mask = (1 << topo->channels_log2) - 1;
-    offsets->rank_mask = (1 << topo->ranks_log2) - 1;
-    offsets->group_mask = (1 << topo->groups_log2) - 1;
-    offsets->bank_mask = (1 << topo->banks_log2) - 1;
-    offsets->row_mask = (1 << topo->rows_log2) - 1;
-    offsets->column_mask = (1 << topo->columns_log2) - 1;
-}
 
 /* 
  * DRamsim provides a way to configure the linear-to-topology mapping

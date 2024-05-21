@@ -295,11 +295,12 @@ type_init(mmio_mem_register_types)
 /*
  * Create the device.
  */
-DeviceState *mmio_mem_create(hwaddr mem_addr, hwaddr config_addr)
+DeviceState *mmio_mem_create(hwaddr mem_addr, hwaddr config_addr, hwaddr metrics_addr)
 {
 	DeviceState *dev = qdev_new(TYPE_MMIO_MEM);
 	sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
 	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, mem_addr);
 	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 1, config_addr);
+	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 2, metrics_addr);
 	return dev;
 }

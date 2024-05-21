@@ -64,6 +64,8 @@ typedef struct {
     uint128_t rng_state;
 } Set;
 
+// NOTE: At some point we might want to add other things, like number of
+// evictions, mean age of evicted blocks, etc.
 typedef struct {
     uint64_t hits;
     uint64_t misses;

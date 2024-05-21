@@ -23,10 +23,12 @@ Block *find_in_cache(Cache *cache, uint64_t address) {
             //printf("Found block of index %d, tag %ld, block_size_log2 %d, address %ld.\n", i, address_tag, cache->block_size_log2, address);
             //printf("assoc_log2 %d, size_log2 %d, block_size %d.\n", cache->assoc_log2, cache->size_log2, cache->block_size);
             //printf("truc %d.\n", log2i(64));
+            cache->metrics.hits += 1;
             return candidate_block;
         }
     }
 
+    cache->metrics.misses += 1;
     return NULL;
 }
 

@@ -65,6 +65,11 @@ typedef struct {
 } Set;
 
 typedef struct {
+    uint64_t hits;
+    uint64_t misses;
+} CacheMetrics;
+
+typedef struct {
     bool enable;
     
     // Length is (size / (assoc * block_size))
@@ -92,6 +97,9 @@ typedef struct {
     uint32_t block_size;
 
     ReplacementPolicy rp;
+
+    // Metrics
+    CacheMetrics metrics;
 
     // Derived metrics
     uint64_t number_of_sets;

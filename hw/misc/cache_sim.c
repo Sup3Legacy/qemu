@@ -360,6 +360,8 @@ static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_
     cache->block_size = block_size;
 
     // Reset cache metrics
+    // TODO: maybe provide a way to reset these at any time without resetting
+    // the caches, for better instrumentation granularity
     cache->metrics.hits = 0;
     cache->metrics.misses = 0;
 

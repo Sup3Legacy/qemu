@@ -155,7 +155,7 @@ static const MemoryRegionOps cache_reg_ops = {
 static uint64_t mmio_metrics_read(void *opaque, hwaddr addr, unsigned int size) {
 	MMIOMemState *s = opaque;
     CacheStruct *caches = &s->caches;
-    Cache *cache_array = {&caches->il1; &caches->dl1; &caches->l2; &caches->l3};
+    Cache *cache_array[4] = {&caches->il1, &caches->dl1, &caches->l2, &caches->l3};
     Cache *cache;
 
     // Rejects reads beyond limit
@@ -163,7 +163,7 @@ static uint64_t mmio_metrics_read(void *opaque, hwaddr addr, unsigned int size) 
         return 0;
     }
 
-    cache = &cache_array[addr / (8 * 2)];
+    cache = cache_array[addr / (8 * 2)];
 
     switch (addr % 16) {
         case 0:
@@ -171,7 +171,7 @@ static uint64_t mmio_metrics_read(void *opaque, hwaddr addr, unsigned int size) 
             return cache->metrics.hits;
         case 8:
             // Second field
-            return ache->metrics.misses;
+            return cache->metrics.misses;
         default:
             // Missaligned access, return default 0
             return 0;

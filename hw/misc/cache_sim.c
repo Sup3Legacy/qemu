@@ -3,6 +3,7 @@
 #include "hw/sysbus.h" /* provides all sysbus registering func */
 #include "hw/misc/cache_sim.h"
 
+// Returns the pointer to the set `address` belongs to within `cache`
 static Set *compute_set(Cache *cache, uint64_t address) {
     uint64_t set_idx = (address >> (cache->assoc_log2 + cache->block_size_log2)) % cache->number_of_sets;
     Set *candidate_set = &cache->sets[set_idx];
@@ -10,9 +11,14 @@ static Set *compute_set(Cache *cache, uint64_t address) {
     return candidate_set;
 }
 
+// Returns the tag corresponding to the address within `cache`
+static uint64_t compute_address_tag(Cache *cache, uint64_t address) {
+    return address >> (cache->block_size_log2);
+}
+
 // Find block associated with address in the cache
 Block *find_in_cache(Cache *cache, uint64_t address) {
-    uint64_t address_tag = address >> (cache->block_size_log2);
+    uint64_t address_tag = compute_address_tag(cache, address);
 
     Set *candidate_set = compute_set(cache, address);
 
@@ -23,20 +29,28 @@ Block *find_in_cache(Cache *cache, uint64_t address) {
             //printf("Found block of index %d, tag %ld, block_size_log2 %d, address %ld.\n", i, address_tag, cache->block_size_log2, address);
             //printf("assoc_log2 %d, size_log2 %d, block_size %d.\n", cache->assoc_log2, cache->size_log2, cache->block_size);
             //printf("truc %d.\n", log2i(64));
+
+            // We have found the block; this is a hit
             cache->metrics.hits += 1;
+
             return candidate_block;
         }
     }
 
+    // We haven't found this block in the set; this is a miss
     cache->metrics.misses += 1;
     return NULL;
 }
 
 // Finds the (possible) first free block in the set
+//
+// NOTE: in an ideal world, we would store a pointer to the possible next free
+// block, such as to spare a few cycles iterating over the whole set. Now, with
+// low enough (say < 32) associativity this is not an issue at all.
 static Block *find_free_block(Cache *cache, Set *set) {
     for (int i = 0; i < cache->assoc; i++) {
         if (! set->blocks[i].is_valid) {
-            // We found a free block :o
+            // We found a free block to allocate
             return &set->blocks[i];
         }
     }
@@ -45,12 +59,19 @@ static Block *find_free_block(Cache *cache, Set *set) {
     return NULL;
 }
 
-static Block *random_evict(Cache *cache, Set *set) {
+// `set`'s embedded PRNG's `next` method
+static uint64_t set_rng_next(Set *set) {
     uint64_t new_value = (RNG_a * set->rng_state + RNG_c) % RNG_m;
     set->rng_state = new_value;
+    return new_value;
+}
 
-    printf("Evicting block at index %lx.\n", new_value % cache->assoc);
-    return &set->blocks[new_value % cache->assoc];
+static Block *random_evict(Cache *cache, Set *set) {
+    // Get next random value from PRNG
+    uint64_t new_value = set_rng_next(set) % cache->assoc;
+
+    printf("Evicting block at index %lx.\n", new_value);
+    return &set->blocks[new_value];
 }
 
 // Find the block to evict from set according to the LRU policy
@@ -97,8 +118,10 @@ static void free_and_flush_block(Cache *cache, Set *set, Block *block) {
     if (block->is_dirty) {
         // Block had been written to, change is held in cache
         // NOTE: This SHOULD NOT happen with WRITETHROUGH policy
+        //       (because no block in a write-through cache can be marked dirty)
 
-        // Hacky but works
+        // HACK: Hacky but works
+        // We retreive the set index from the set pointer.
         uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
 
         // TODO: check that this is right
@@ -109,18 +132,26 @@ static void free_and_flush_block(Cache *cache, Set *set, Block *block) {
         // propagated down to that level. It will be propagated further down on
         // eviction of that line.
         // 
-        // The write policy is here hard-coded to false as this branch cannot be
+        // The write policy is here hard-set to false as this branch cannot be
         // executed in a write-through context
         (cache->lower_write)(cache->lower_cache, block->data, cache->block_size, mem_address, false);
     }
 
+    // If `block` was not dirty, there is no need to write it back to the next
+    // cache level, we can simply discard the block
+
     // Reset block flags to initial state
+    // NOTE: There is no need to touch anything in the block data segment. No
+    // data could be leaked, as this block will only be read after having been
+    // re-filled with a segment from lower.
     block->is_valid = false;
     block->is_dirty = false;
 }
 
 // Perform the eviction of a block in the cache and write back if needed
 // TODO: determine how this comes into play w.r.t. the write policy
+//
+// POST: Will always return a valid `Block *`
 static Block *evict_and_free(Cache *cache, Set *set) {
     Block *evicted_block;
     switch (cache->rp) {
@@ -137,7 +168,11 @@ static Block *evict_and_free(Cache *cache, Set *set) {
             break;
 
         default:
-            return NULL;
+            // Fallback in case of misconfigured cache unit:
+            // evict the first block. That way, nothing is broken further down,
+            // even though the high-level cache behaviour is... weird
+            evicted_block &set->blocks[0];
+            break;
             
         // TODO: implement the other eviction policies
     }
@@ -147,6 +182,7 @@ static Block *evict_and_free(Cache *cache, Set *set) {
     return evicted_block;
 }
 
+// Flushes the whole cache, by flushing all its blocks one-by-one
 static void flush_cache(Cache *cache) {
     for (int i = 0; i < cache->number_of_sets; i++) {
         for (int j = 0; j < cache->assoc; j++) {
@@ -155,20 +191,18 @@ static void flush_cache(Cache *cache) {
     }
 }
 
-// Allocate block for the line we're about to insert in the cache
-// Inernaly, this takes care of evicting an existing cache line if needed
+// Allocate block for the line we're about to insert into the cache
+// Internaly, this takes care of evicting an existing cache line if needed
+//
+// POST: Will always return a valid `Block *`
 static Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
-    // NOTE: We could instead shift it by only block_size_log2 (removing the
-    // block offset bits). This would makes things a bit simpler, without
-    // hurting anything because we're storing and handling u64s anyway
-    uint64_t tag = address >> (cache->block_size_log2);
+    uint64_t tag = compute_address_tag(cache, address);
 
-    Block *allocated_block;
-
-    allocated_block = find_free_block(cache, set);
+    // Might return `NULL` on full set
+    Block *allocated_block = find_free_block(cache, set);
 
     if (!allocated_block) {
-        // No free block was found
+        // No free block was found, set was full
         // We have to evict :>
 
         printf("Line eviction needed.\n");
@@ -183,6 +217,8 @@ static Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
     return allocated_block;
 }
 
+// Cache level read callback
+//
 // We assume that `length` is smaller than this cache's block size.
 // Also, the alignment should be such that blocks do not cross block
 // boundaries of lower cache levels
@@ -192,22 +228,24 @@ static void cache_read(void *opaque, uint8_t *destination, uint32_t length, uint
 
     //printf("Try and read from cache @%lx with size %x.\n", address, length);
 
-    // Accesses from the CPU should not cross block lines.
+    // NOTE: Accesses from the CPU should not cross block lines.
     // WARN: this might happen, e.g. with unaligned accesses
-    // This will have to be handled in he cachesim toplevel, splitting the
+    // This will have to be handled in the cachesim toplevel, splitting the
     // access into two
     Block *candidate_block = find_in_cache(cache, address);
 
+    // By this point, the hit/miss in this level has been registered
     if (!candidate_block) {
         // If line not in cache, fetch from lower
         printf("Data not in cache.\n");
 
-        // TODO: register a cache miss
         Set *destination_set = compute_set(cache, address);
         candidate_block = allocate_block(cache, destination_set, address);
 
         uint64_t block_base = block_base_from_address(cache->block_size_log2, address);
 
+        // Call the next level's read callback to populate this freshly
+        // allocated cache block
         (cache->lower_read)(cache->lower_cache, candidate_block->data, cache->block_size, block_base);
         //printf("Data fetched from lower level cache.\n");
     } else {
@@ -217,31 +255,28 @@ static void cache_read(void *opaque, uint8_t *destination, uint32_t length, uint
     // Now that data is in cache, copy over the data
     char *offset_in_block = (char *)((uint64_t)candidate_block->data + (address % cache->block_size));
     //printf("Going to copy from %lx to %lx with length %x.\n", (uint64_t)offset_in_block, (uint64_t)destination, length);
-    for (int i = 0; i < cache->block_size; i++) {
-        //printf("%x", (uint8_t)candidate_block->data[i]);
-    }
-    //printf("\n");
+
     memcpy(destination, offset_in_block, length);
 }
 
-// Issue a write operation on the cache.
+// Cache level read callback
 //
 // If the policy is write-back and the line is present in this cache, we simply
 // apply this write in the cache block. In all other cases, we pass this write
 // forward to the lower cache level.
 //
 // In particular, if the write location is nowhere in the cache, the write
-// directly percolates down to memory.
+// percolates down to memory.
 static void cache_write(void *opaque, uint8_t *source, uint32_t length, uint64_t address, bool is_write_through) {
     Cache *cache = (Cache *)opaque;
 
     //printf("Try and write to cache @%lx with size %x.\n", address, length);
 
-    // Find correspondign block
+    // Find corresponding block
     Block *block = find_in_cache(cache, address);
 
     if (!block && !is_write_through) {
-        // If line not in cache, fetch from lower
+        // If line not in cache, fetch from lower before performing the write
 
         Set *destination_set = compute_set(cache, address);
         block = allocate_block(cache, destination_set, address);
@@ -257,17 +292,14 @@ static void cache_write(void *opaque, uint8_t *source, uint32_t length, uint64_t
         char *offset_in_block = (char *)((uint64_t)block->data + (address % cache->block_size));
         memcpy(offset_in_block, source, length);
 
-
         if (is_write_through) {
             // If write-through, we still propagate the write to lower cache
             // levels, but encompasing a whole block
             uint64_t block_base = block_base_from_address(cache->block_size, address);
             (cache->lower_write)(cache->lower_cache, block->data, cache->block_size, block_base, is_write_through);
 
-            // Assuming we broaden the write operation to the whole block, it is
-            // now clean.
-            // NOTE: If we switch to only propagate the initial write segment,
-            // we have to keep the dirty flag
+            // NOTE: we can mark the block non-dirty, as it was written back in
+            // its entirety
             block->is_dirty = false;
         } else {
             // Set block now dirty
@@ -278,48 +310,55 @@ static void cache_write(void *opaque, uint8_t *source, uint32_t length, uint64_t
         }
     } else {
         // Else, we simply propagate the write as-is to the lower level
+        //
+        // WARN: Do we need to pass the whole cache, or just what was given to
+        // us?
+        // Edge-case: if is_write_through and no level has the location cached,
+        // only [address; address + length[ gets written back to memory, so ~8
+        // bytes instead of l3->block_size...
         (cache->lower_write)(cache->lower_cache, source, length, address, is_write_through);
     }
 }
 
+// Mock memory backend read callback
 static void mem_read(void *opaque, uint8_t *destination, uint32_t length, uint64_t address) {
-    // NOTE: At some point, will instead call the memory controller sim...
+    MockMemBackend *mem = opaque;
 
     printf("Try and read from mem @%lx with size %x.\n", address, length);
-
-    MemBackend *mem = opaque;
     if (address < mem->offset) {
         // Read below memory segment
+        printf("Read below memory segment: %x @%lx.\n", length, address);
         return;
     }
     if (address + length >= mem->offset + mem->size) {
-        // Read after the memory segment
+        // Read over the memory segment
+        printf("Read over memory segment: %x @%lx.\n", length, address);
         return;
     }
 
-    //printf("Check passed. mem_offset: %lx\n", mem->offset);
-
     memcpy(destination, (char *)(address - mem->offset + (uint64_t)(mem->data)), length);
-
-    //printf("Post-check.\n");
 }
 
+// Mock memory backend write callback
 static void mem_write(void *opaque, uint8_t *source, uint32_t length, uint64_t address, bool _is_write_through) {
-    MemBackend *mem = opaque;
+    MockMemBackend *mem = opaque;
 
     printf("Try and write to mem @%lx with size %x.\n", address, length);
 
     if (address < mem->offset) {
         // Write below memory segment
+        printf("Write below memory segment: %x @%lx.\n", length, address);
         return;
     }
     if (address + length >= mem->offset + mem->size) {
-        // Write after the memory segment
+        // Write over the memory segment
+        printf("Write over memory segment: %x @%lx.\n", length, address);
         return;
     }
     memcpy((char *)(address - mem->offset + (uint64_t)(mem->data)), source, length);
 }
 
+// Initializes block
 static void init_block(Cache *cache, Set *set, Block *block, uint32_t set_id, uint32_t block_id) {
     // Take pointer to cache memory at correct offset
     block->data = &cache->cache_memory[set_id * cache->set_size + block_id * cache->block_size];
@@ -329,8 +368,8 @@ static void init_block(Cache *cache, Set *set, Block *block, uint32_t set_id, ui
     block->tag = 0;
 }
 
+// Initializes set
 static int init_set(Cache *cache, Set *set, uint32_t set_id) {
-    // ... initialize set
     set->rng_state = RNG_init;
     set->mlru_gen_counter = 0;
 
@@ -346,6 +385,12 @@ static int init_set(Cache *cache, Set *set, uint32_t set_id) {
 
     return 0;
 }
+
+/*
+ *
+ * NOTE: What follows next is ugly
+ *
+ */
 
 // TODO: not static
 static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc, ReplacementPolicy rp, void *lower_cache, lower_read_t lower_read, lower_write_t lower_write) {
@@ -425,7 +470,7 @@ static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_
     return 1;
 }
 
-static int setup_mem_backend(MemBackend *mem, uint64_t size, uint64_t offset) {
+static int setup_mem_backend(MockMemBackend *mem, uint64_t size, uint64_t offset) {
     mem->size = size;
     mem->offset = offset;
 
@@ -467,7 +512,7 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
     l2->enable = request->l2.enable;
     l3->enable = request->l3.enable;
 
-    MemBackend *mem = &caches->mem;
+    MockMemBackend *mem = &caches->mem;
 
     // Initialize memory backend
     if (setup_mem_backend(mem, request->mem_size, request->mem_offset)) {

@@ -6,7 +6,7 @@
 // CONTRACT: Assumes `val` is within bounds ([0; `controller->topology.size`[).
 //           Also, the controller must have been completely initialized
 static void address_to_coords(MemController *controller, uint64_t val, MemCoords *coords) {
-    MemTopologyOffsts *offsets = &controller->offsets;
+    MemTopologyOffsets *offsets = &controller->offsets;
     // TODO: here are some implicit casts to uint8_t
     //       In practice, these should not overflow (no more than 2^8 channels,
     //       ranks or groups)
@@ -54,5 +54,5 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     offsets->group_mask = (1 << topo->groups_log2) - 1;
     offsets->bank_mask = (1 << topo->banks_log2) - 1;
     offsets->row_mask = (1 << topo->rows_log2) - 1;
-    offsets->column_mask = (1 << topo->columns_log2) - 1;
+    offsets->column_mask = (1 << topo->column_width_log2) - 1;
 }

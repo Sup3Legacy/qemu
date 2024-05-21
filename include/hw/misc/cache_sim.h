@@ -59,7 +59,7 @@ typedef struct {
     uint128_t mlru_gen_counter;
 
     // TODO: init this a a good value
-    // FIXME: Should this be part of the cahce unit or just set?
+    // FIXME: Should this be part of the cache unit or just set?
     // Side-channel maybe?
     uint128_t rng_state;
 } Set;
@@ -85,12 +85,12 @@ typedef struct {
     // first argument to lower_{fetch, write_back}
     void *lower_cache;
 
-    // Function to call to fetch date from to populate the cache
+    // Function to call to fetch data from to populate the cache
     // Will be either the fetch function from the lower cache level or the
-    // memory fetch function (plugged to the DRAM controller ismulator
+    // memory fetch function (plugged to the DRAM controller simulator)
     lower_read_t lower_read;
 
-    // Samething for writebacks
+    // Same thing for writebacks
     lower_write_t lower_write;
 
     // All three have to be powers of two
@@ -98,16 +98,17 @@ typedef struct {
     uint8_t assoc;
     uint32_t block_size;
 
+    // TODO: should this go?
     ReplacementPolicy rp;
 
     // Metrics
     CacheMetrics metrics;
 
-    // Derived metrics
+    // Derived cache dimensions
     uint64_t number_of_sets;
     uint64_t set_size;
 
-    // log2s
+    // dimensions log2s
     uint8_t size_log2;
     uint8_t assoc_log2;
     uint8_t block_size_log2;
@@ -120,14 +121,17 @@ typedef struct {
     // Address of the first byte in memory
     uint64_t offset;
     char *data;
-} MemBackend;
+} MockMemBackend;
 
 typedef struct {
+    // All cache levels
     Cache il1;
     Cache dl1;
     Cache l2;
     Cache l3;
-    MemBackend mem;
+
+    // Temporary memory backend; just a wrapper around a buffer
+    MockMemBackend mem;
 
     // Behaviour toggles
     bool is_active;
@@ -140,12 +144,15 @@ typedef struct {
     WritePolicy wp;
     ReplacementPolicy rp;
 
+    // Entry call-backs and contexts
+    // These CAN be split between Instruction and Data
     void *entry_point_instruction;
     void *entry_point_data;
     lower_read_t read_fct;
     lower_write_t write_fct;
 } CacheStruct;
 
+// Struct holding the requested configuration for a cache level
 typedef struct {
     bool enable;
     uint64_t size;
@@ -156,17 +163,26 @@ typedef struct {
 // Structure holding the cache model configuration requested from the guest
 // kernel
 typedef struct {
+    // Cache levels
     SingleCacheConfigRequest il1;
     SingleCacheConfigRequest dl1;
     SingleCacheConfigRequest l2;
     SingleCacheConfigRequest l3;
+
+    // Enables the whole cache unit
+    // If disabled, the backing memory module is directly hooked to the
+    // callbacks
+    bool enable;
     // Enables both the Data and Instruction L1 cache
     bool l1_enable;
-    bool enable;
-    uint64_t mem_size;
-    uint64_t mem_offset;
+
+    // Requested policies
     WritePolicy wp;
     ReplacementPolicy rp;
+
+    // TEMP: Temporary memory backend config
+    uint64_t mem_size;
+    uint64_t mem_offset;
 } RequestedCaches;
 
 Block *find_in_cache(Cache *cache, uint64_t address);
@@ -178,12 +194,14 @@ static uint64_t block_base_from_address(uint64_t block_size_log2, uint64_t addre
     return (address >> block_size_log2) << block_size_log2;
 }
 
+// Converts an `uint64_t` to an 8-long byte array
 static void to_bytes(uint64_t val, uint8_t *bytes) {
     for (int i = 0; i < 8; i++) {
         bytes[i] = (val >> (i * 8)) % (1 << 8);
     }
 }
 
+// Converts an 8-long byte array to an `uint64_t`
 static uint64_t from_bytes(uint8_t *bytes) {
     uint64_t acc = 0;
     for (int i = 0; i < 8; i++) {
@@ -192,8 +210,15 @@ static uint64_t from_bytes(uint8_t *bytes) {
     return acc;
 }
 
+// Configures and allocates the caches with respect to the requested
+// configuration
+//
+// NOTE: A lot of things here (and this in particular) are safe only because
+// this is single-threaded, so any access being processed here has exclusive
+// access to the whole cache/memory simulation simulation backend.
 int setup_caches(CacheStruct *caches, RequestedCaches *request);
 
+// Flush all caches to the memory backend
 void flush_caches(CacheStruct *caches);
 
 #endif

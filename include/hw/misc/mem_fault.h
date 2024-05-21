@@ -29,7 +29,7 @@ typedef struct {
 
 // TODO: move to .c file
 // Applies a fault model to the input value
-uint64_t apply_fault(FaultHandler *handler, uint64_t val) {
+static uint64_t apply_fault(FaultHandler *handler, uint64_t val) {
     return (val & (~ handler->active_model.pulldowns)) | handler->active_model.pullups;
 }
 

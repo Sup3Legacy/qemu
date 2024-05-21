@@ -359,6 +359,10 @@ static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_
     cache->size = size;
     cache->block_size = block_size;
 
+    // Reset cache metrics
+    cache->metrics.hits = 0;
+    cache->metrics.misses = 0;
+
     // Derive other fields
     uint32_t number_of_sets = size / (assoc * block_size);
     cache->number_of_sets = number_of_sets;

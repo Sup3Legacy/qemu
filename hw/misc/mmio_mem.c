@@ -159,13 +159,13 @@ static uint64_t mmio_metrics_read(void *opaque, hwaddr addr, unsigned int size) 
     Cache *cache;
 
     // Rejects reads beyond limit
-    if (address >= 4 * 2 * 8) {
+    if (addr >= 4 * 2 * 8) {
         return 0;
     }
 
-    cache = &cache_array[address / (8 * 2)];
+    cache = &cache_array[addr / (8 * 2)];
 
-    switch (address % 16) {
+    switch (addr % 16) {
         case 0:
             // First field
             return cache->metrics.hits;

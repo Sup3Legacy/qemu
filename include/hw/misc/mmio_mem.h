@@ -12,6 +12,7 @@ typedef struct MMIOMemState_t {
 	MemoryRegion iomem;
 	MemoryRegion cache_config_reg;
 	MemoryRegion fault_config_reg;
+	MemoryRegion metrics_reg;
 	uint64_t chip_id;
     unsigned int size;
 

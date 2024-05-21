@@ -145,6 +145,53 @@ static const MemoryRegionOps cache_reg_ops = {
 };
 
 /* 
+ * Cache Metrics MMIO segment
+ */
+
+// Reads to this region return a metric value related to one of the caches
+// It consists of [uint64_t hits; uint64_t misses] for all caches (l1I, l1D, l2, l3)
+//
+// FIXME: very hacky and ad-hoc
+static uint64_t mmio_metrics_read(void *opaque, hwaddr addr, unsigned int size) {
+	MMIOMemState *s = opaque;
+    CacheStruct *caches = &s->caches;
+    Cache *cache_array = {&caches->il1; &caches->dl1; &caches->l2; &caches->l3};
+    Cache *cache;
+
+    // Rejects reads beyond limit
+    if (address >= 4 * 2 * 8) {
+        return 0;
+    }
+
+    cache = &cache_array[address / (8 * 2)];
+
+    switch (address % 16) {
+        case 0:
+            // First field
+            return cache->metrics.hits;
+        case 8:
+            // Second field
+            return ache->metrics.misses;
+        default:
+            // Missaligned access, return default 0
+            return 0;
+    }
+}
+
+static void mmio_metrics_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
+	//MMIOMemState *s = opaque;
+    // NOTE: writing to this region does nothing
+
+    return;
+}
+
+static const MemoryRegionOps metrics_reg_ops = {
+	.read = mmio_metrics_read,
+    .write = mmio_metrics_write,
+	.endianness = DEVICE_NATIVE_ENDIAN,
+};
+
+/* 
  * Fault configuration MMIO segment
  */
 
@@ -215,6 +262,7 @@ void mmio_mem_instance_init(Object *obj)
 	memory_region_init_io(&s->iomem, obj, &mmio_mem_ops, s, TYPE_MMIO_MEM, 0x1000);
 	memory_region_init_io(&s->cache_config_reg, obj, &cache_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	memory_region_init_io(&s->fault_config_reg, obj, &fault_reg_ops, s, TYPE_MMIO_MEM, 0x100);
+	memory_region_init_io(&s->metrics_reg, obj, &metrics_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->cache_config_reg);
     // TODO: same thing for the fautl config region

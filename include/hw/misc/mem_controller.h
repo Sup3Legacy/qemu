@@ -42,11 +42,6 @@ typedef struct {
     uint32_t column_mask;
 } MemTopologyOffsets;
 
-typedef struct {
-    MemTopology topology;
-    MemTopologyOffsets offsets;
-
-} MemController;
 
 typedef struct {
     uint8_t channel;
@@ -66,6 +61,8 @@ typedef struct {
 
     // Address in memory of the first byte in `buf`
     uint64_t line_offset;
+
+    bool is_empty;
 } WriteQueue;
 
 #define WRITE_QUEUE_NUMS
@@ -79,8 +76,15 @@ typedef struct {
 
     // Maximum number of bytes stored in a write-queue
     // TODO: Same thing
-    uint64_t max_wq_span_length;
+    uint64_t max_wq_span;
 } WriteBuffer;
+
+typedef struct {
+    MemTopology topology;
+    MemTopologyOffsets offsets;
+
+    WriteBuffer wbuf;
+} MemController;
 
 /*
  * Write cache:

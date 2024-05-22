@@ -56,3 +56,65 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     offsets->row_mask = (1 << topo->rows_log2) - 1;
     offsets->column_mask = (1 << topo->column_width_log2) - 1;
 }
+
+// NOTE: a full write-queue should be directly written in the same invocation
+
+WriteQueue *try_find_nonempty_write_queue(WriteBuffer *wb, uint64_t address) {
+    WriteQueue *wq;
+    for (int i = 0; i < wb->total_wq_number; i++) {
+        wq = &wb->wqs[i];
+
+        // We skip any empty write queue; these will be looked through elsewhere
+        if (wq->is_empty)
+            continue;
+
+        if (wq->line_offset <= address && wq->line_offset + wq->stored_length >= address) {
+            // There is an overlap between the stored cache line and the
+            // incoming one
+            return wq;
+        }
+    }
+    
+    return NULL;
+}
+
+WriteQueue *try_find_empty_write_queue(WriteBuffer *wb, uint64_t address) {
+    WriteQueue *wq;
+    for (int i = 0; i < wb->total_wq_number; i++) {
+        wq = &wb->wqs[i];
+        if (wq->is_empty) {
+            return wq;
+        }
+    }
+    
+    return NULL;
+}
+
+WriteQueue *try_find_write_queue(WriteBuffer *wb, uint64_t address) {
+    WriteQueue *candidate_wq;
+    candidate_wq = try_find_nonempty_write_queue(wb, address);
+
+    if (!candidate_wq)
+        candidate_wq = try_find_empty_write_queue(wb, address);
+
+    return candidate_wq;
+}
+
+// CONTRACT: will always return a valid pointer
+WriteQueue *find_write_queue(WriteBuffer *wb, uint64_t address) {
+    WriteQueue *candidate_wq;
+    candidate_wq = try_find_write_queue(wb, address);
+    // Here, `candidate_wq` is either an empty wq or a non-empty one that
+    // intersects with the incoming data
+
+    if (!candidate_wq) {
+        // TODO: flush one of the wqs and re-allocate it.
+
+    }
+
+}
+
+// TODO: find better name
+void bufferize_write(MemController *mc, char *data, uint64_t address, uint64_t length) {
+
+}

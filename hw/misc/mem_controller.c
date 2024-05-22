@@ -100,6 +100,26 @@ WriteQueue *try_find_write_queue(WriteBuffer *wb, uint64_t address) {
     return candidate_wq;
 }
 
+// CONTRACT: `address` must be within the wq data or juste after
+uint64_t write_to_queue_single(WriteQueue *wq, char *data, uint64_t address, uint64_t length, uint64_t max_length) {
+
+    uint64_t wq_end = wq->line_offset + wq->stored_length;
+    uint64_t overlap = wq_end - address;
+    uint64_t remaining_space = max_length - wq->stored_length;
+    uint64_t total_to_write = length - overlap;
+    uint64_t to_write = min(remaining_space, total_to_write);
+
+    // WARN: Hmhmmm...? What do you mean "ugly code"?
+    memcpy((char *)((size_t)wq->buf + (size_t)wq->stored_length - (size_t)overlap), data, to_write);
+
+    wq->is_empty = false;
+
+    // Return the number of bytes written
+    //
+    // if we cmpletly filled the queue, we can flush its content to memory.
+    return to_write;
+}
+
 // CONTRACT: will always return a valid pointer
 WriteQueue *find_write_queue(WriteBuffer *wb, uint64_t address) {
     WriteQueue *candidate_wq;

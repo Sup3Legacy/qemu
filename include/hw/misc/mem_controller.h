@@ -58,6 +58,56 @@ typedef struct {
     // TODO: what next?
 } MemCoords;
 
+typedef struct {
+    char *buf;
+
+    // Number of bytes stored in the wq, starting from buf at index 0
+    uint64_t stored_length;
+
+    // Address in memory of the first byte in `buf`
+    uint64_t line_offset;
+} WriteQueue;
+
+#define WRITE_QUEUE_NUMS
+typedef struct {
+    // Array of write-queues
+    WriteQueue *wqs;
+
+    // Number of write-queues
+    // TODO: Make this runtime-configurable
+    uint64_t total_wq_number;
+
+    // Maximum number of bytes stored in a write-queue
+    // TODO: Same thing
+    uint64_t max_wq_span_length;
+} WriteBuffer;
+
+/*
+ * Write cache:
+ *
+ * Contains an arbitrary number of write queues, each holding a list of cache
+ * lines (as a linked-list or an array?)
+ *
+ * On received:
+ * - Write: check all write queue (hint: store important fats to speed up
+ *   lookup):
+ *   + if cache-line is directly adjacent to the wq's end, enqueue it.
+ *   + if already present somewhere (might this happen?), replace present line
+ *   + if not present, (flush and) allocate a fresh wq
+ * - Read: Check all write queues
+ *   + if present somewhere in the write buffer, fetch the data from there (and
+ *     register a write-buffer read hit, I guess)
+ *   + else fetch from memory and leave write buffer unchanged
+ * 
+ * On wq flush, stream-write all cache lines.
+ * 
+ * NOTE: there is no way to bufferize and group reads
+ *
+ * Should we regularly check whether two wqs could be merged ?
+ * Somewhat complexity issue, don't know if it would more closely match the HW
+ *
+ */
+
 // FIXME: Already defined in cache_sim.h, we should merge these implementations
 static inline uint8_t log2i(uint64_t x) {
     return sizeof(uint64_t) * 8 - __builtin_clz(x) - 1 - 32;

@@ -68,6 +68,8 @@ WriteQueue *try_find_nonempty_write_queue(WriteBuffer *wb, uint64_t address) {
         if (wq->is_empty)
             continue;
 
+        // BUG: If the memory segment given as argument completely contains the
+        // stored buffer line, there WILL be a false negative in this search
         if (wq->line_offset <= address && wq->line_offset + wq->stored_length >= address) {
             // There is an overlap between the stored cache line and the
             // incoming one
@@ -162,4 +164,8 @@ void buffer_write(MemController *mc, char *data, uint64_t address, uint64_t leng
         // TODO; check that returned value is not 0
         written += write_to_queue_single(queue, (char *)((size_t)char + (size_t)written), address + written, length - written, mc->wbuf.max_wq_span);
     }
+}
+
+void buffer_read(MemController *mc, char *destination, uint64_t address, uint64_t length) {
+
 }

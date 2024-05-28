@@ -100,6 +100,37 @@ WriteQueue *try_find_write_queue(WriteBuffer *wb, uint64_t address) {
     return candidate_wq;
 }
 
+WriteQueue *find_fullest_queue(WriteBuffer *wb) {
+    uint64_t max_length = 0;
+    WriteQueue *q = NULL;
+
+    for (int i = 0; i < wq->total_wq_number; i++) {
+        WriteQueue *queue = &wq->wqs[i];
+        if (!queue->is_empty && queue->stored_length > max_length) {
+            q = queue;
+        }
+    }
+
+    return q;
+}
+
+// CONTRACT: will always return a valid pointer
+WriteQueue *find_write_queue(WriteBuffer *wb, uint64_t address) {
+    WriteQueue *candidate_wq;
+    candidate_wq = try_find_write_queue(wb, address);
+    // Here, `candidate_wq` is either an empty wq or a non-empty one that
+    // intersects with the incoming data
+
+    if (!candidate_wq) {
+        // Find the fullest queue in the buffer
+        candidate_queue = find_fullest_queue(wb);
+
+        // TODO: flush it and carry-on with the operation
+    }
+
+    return candate_queue;
+}
+
 // CONTRACT: `address` must be within the wq data or juste after
 uint64_t write_to_queue_single(WriteQueue *wq, char *data, uint64_t address, uint64_t length, uint64_t max_length) {
 
@@ -114,27 +145,21 @@ uint64_t write_to_queue_single(WriteQueue *wq, char *data, uint64_t address, uin
 
     wq->is_empty = false;
 
-    // Return the number of bytes written
-    //
-    // if we cmpletly filled the queue, we can flush its content to memory.
+    if (to_write == remaining_space) {
+        // TODO: flush buffer to memory (finally!)
+    }
+
+    // Return number of bytes written
     return to_write;
 }
 
-// CONTRACT: will always return a valid pointer
-WriteQueue *find_write_queue(WriteBuffer *wb, uint64_t address) {
-    WriteQueue *candidate_wq;
-    candidate_wq = try_find_write_queue(wb, address);
-    // Here, `candidate_wq` is either an empty wq or a non-empty one that
-    // intersects with the incoming data
-
-    if (!candidate_wq) {
-        // TODO: flush one of the wqs and re-allocate it.
-
-    }
-
-}
-
 // TODO: find better name
-void bufferize_write(MemController *mc, char *data, uint64_t address, uint64_t length) {
+void buffer_write(MemController *mc, char *data, uint64_t address, uint64_t length) {
+    uint64_t written = 0;
 
+    while (written != length) {
+        WriteQueue *queue = find_write_queue(&mc->wbuf, address);
+        // TODO; check that returned value is not 0
+        written += write_to_queue_single(queue, (char *)((size_t)char + (size_t)written), address + written, length - written, mc->wbuf.max_wq_span);
+    }
 }

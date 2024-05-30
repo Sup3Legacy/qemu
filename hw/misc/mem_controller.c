@@ -59,6 +59,24 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
 
 // NOTE: a full write-queue should be directly written in the same invocation
 
+// TEMP: remove this, useless?
+void overwrite_write_queues(WriteBuffer *wb, char *date, uint64_t address, uint64_t length) {
+    WriteQueue *wq;
+    for (int i = 0; i < wb->total_wq_number; i++) {
+        wq = &wb->wqs[i];
+
+        // We skip any empty write queue; these will be looked through elsewhere
+        if (wq->is_empty)
+            continue;
+
+        if (address <= wq->line_offset + wq->stored_length && address + length >= wq->line_offset) {
+            // There is an overlap between the stored cache line and the
+            // incoming one
+             
+        }
+    }
+}
+
 WriteQueue *try_find_nonempty_write_queue(WriteBuffer *wb, uint64_t address) {
     WriteQueue *wq;
     for (int i = 0; i < wb->total_wq_number; i++) {
@@ -133,6 +151,14 @@ WriteQueue *find_write_queue(WriteBuffer *wb, uint64_t address) {
     return candate_queue;
 }
 
+void flush_write_queue(MemoryController *mc, WriteQueue *wq) {
+    // TODO: Write the actual flushing once DDR backend written
+
+    // Now, mark queue as empty and reusable
+    wq->stored_length = 0;
+    wq->is_empty = true;
+}
+
 // CONTRACT: `address` must be within the wq data or juste after
 uint64_t write_to_queue_single(WriteQueue *wq, char *data, uint64_t address, uint64_t length, uint64_t max_length) {
 
@@ -148,7 +174,7 @@ uint64_t write_to_queue_single(WriteQueue *wq, char *data, uint64_t address, uin
     wq->is_empty = false;
 
     if (to_write == remaining_space) {
-        // TODO: flush buffer to memory (finally!)
+        // TODO: queue is now full, flush to memory (finally!)
     }
 
     // Return number of bytes written

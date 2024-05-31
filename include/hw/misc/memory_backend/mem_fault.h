@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include "qom/object.h"
+#include "hw/misc/memory_backend/ddr.h"
 
 /*
  * Make a struct that holds a reference to the backing memory backend.

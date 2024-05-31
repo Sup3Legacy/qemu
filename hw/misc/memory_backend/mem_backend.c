@@ -1,5 +1,5 @@
 #include "qemu/osdep.h"
 #include "qapi/error.h" /* provides error_fatal() handler */
 #include "hw/sysbus.h" /* provides all sysbus registering func */
-#include "hw/misc/mem_backend.h"
+#include "hw/misc/memory_backend/mem_backend.h"
 

@@ -1,7 +1,7 @@
 #include "qemu/osdep.h"
 #include "qapi/error.h" /* provides error_fatal() handler */
 #include "hw/sysbus.h" /* provides all sysbus registering func */
-#include "hw/misc/mem_controller.h"
+#include "hw/misc/memory_backend/mem_controller.h"
 
 // CONTRACT: Assumes `address` is within bounds ([0; `controller->topology.size`[).
 //           Also, the controller must have been completely initialized

@@ -1,7 +1,7 @@
 #include "qemu/osdep.h"
 #include "qapi/error.h" /* provides error_fatal() handler */
 #include "hw/sysbus.h" /* provides all sysbus registering func */
-#include "hw/misc/cache_sim.h"
+#include "hw/misc/memory_backend/cache_sim.h"
 
 // Returns the pointer to the set `address` belongs to within `cache`
 static Set *compute_set(Cache *cache, uint64_t address) {

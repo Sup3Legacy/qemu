@@ -1,7 +1,7 @@
 #include "qemu/osdep.h"
 #include "qapi/error.h" /* provides error_fatal() handler */
 #include "hw/sysbus.h" /* provides all sysbus registering func */
-#include "hw/misc/mmio_mem.h"
+#include "hw/misc/memory_backend/mmio_mem.h"
 
 #define TYPE_MMIO_MEM "mmio_mem"
 //typedef struct MMIOMmemState MMIOMemState;

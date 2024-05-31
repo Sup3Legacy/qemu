@@ -3,9 +3,9 @@
 
 #include "qom/object.h"
 #include "hw/misc/cache_sim.h"
-#include "hw/misc/mem_controller.h"
-#include "hw/misc/mem_backend.h"
-#include "hw/misc/mem_fault.h"
+#include "hw/misc/memory_backend/mem_controller.h"
+#include "hw/misc/memory_backend/mem_backend.h"
+#include "hw/misc/memory_backend/mem_fault.h"
 
 typedef struct MMIOMemState_t {
 	SysBusDevice parent_obj;

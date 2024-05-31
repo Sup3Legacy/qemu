@@ -3,7 +3,8 @@
 
 #include <inttypes.h>
 #include "qom/object.h"
-#include "hw/misc/mem_fault.h"
+#include "hw/misc/memory_backend/mem_fault.h"
+#include "hw/misc/memory_backend/ddr.h"
 
 // A struct containign the data and logic held by a physical memory channel
 //

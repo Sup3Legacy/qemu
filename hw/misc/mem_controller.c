@@ -3,19 +3,19 @@
 #include "hw/sysbus.h" /* provides all sysbus registering func */
 #include "hw/misc/mem_controller.h"
 
-// CONTRACT: Assumes `val` is within bounds ([0; `controller->topology.size`[).
+// CONTRACT: Assumes `address` is within bounds ([0; `controller->topology.size`[).
 //           Also, the controller must have been completely initialized
-static void address_to_coords(MemController *controller, uint64_t val, MemCoords *coords) {
+static void address_to_coords(MemController *controller, uint64_t address, MemCoords *coords) {
     MemTopologyOffsets *offsets = &controller->offsets;
     // TODO: here are some implicit casts to uint8_t
     //       In practice, these should not overflow (no more than 2^8 channels,
     //       ranks or groups)
-    coords->channel = (val >> offsets->channel_off) & offsets->channel_mask;
-    coords->rank = (val >> offsets->rank_off) & offsets->rank_mask;
-    coords->group = (val >> offsets->group_off) & offsets->group_mask;
-    coords->bank = (val >> offsets->bank_off) & offsets->bank_mask;
-    coords->row = (val >> offsets->row_off) & offsets->row_mask;
-    coords->column = (val >> offsets->column_off) & offsets->column_mask;
+    coords->channel = (address >> offsets->channel_off) & offsets->channel_mask;
+    coords->rank = (address >> offsets->rank_off) & offsets->rank_mask;
+    coords->group = (address >> offsets->group_off) & offsets->group_mask;
+    coords->bank = (address >> offsets->bank_off) & offsets->bank_mask;
+    coords->row = (address >> offsets->row_off) & offsets->row_mask;
+    coords->column = (address >> offsets->column_off) & offsets->column_mask;
 }
 
 // TODO: Re-order these methods
@@ -55,6 +55,31 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     offsets->bank_mask = (1 << topo->banks_log2) - 1;
     offsets->row_mask = (1 << topo->rows_log2) - 1;
     offsets->column_mask = (1 << topo->column_width_log2) - 1;
+}
+
+// TODO: move elsewhere
+// CONTRACT: Assumes the RAM topology has been registered and all offsets and
+// masks have been computed; i.e. `*mc` was correctly initialized
+void memory_read(MemController *mc, char *destination, uint64_t address, uint64_t length) {
+    MemCoords coords;
+    uint8_t channel_idx;
+    MemChannel *channel;
+
+    // TODO: check that the address is withing bounds of the ram controller.
+    // this then ensures all coordinates valid (assuming the
+    // address-to-coordinates conversion is correct itself)
+
+    // Convert linear address to DDR2 coordinates
+    address_to_coords(mc, address, &coords);
+    channel_idx = coords.channel;
+    channel = &mc->channels[channel_idx];
+
+
+    
+    // TODO: check whether some parts have to be overlaid by data in the write
+    // buffer
+
+    return;
 }
 
 // NOTE: a full write-queue should be directly written in the same invocation

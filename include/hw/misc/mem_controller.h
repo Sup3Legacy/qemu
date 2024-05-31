@@ -5,6 +5,16 @@
 #include "qom/object.h"
 #include "hw/misc/mem_fault.h"
 
+// A struct containign the data and logic held by a physical memory channel
+//
+// Because the faults we target in the end happen on the per-channel traces, we
+// directly assign a fault handler to each channel.
+typedef struct {
+    FaultHandler fault_handler;
+
+    // TODO: fill-in the rest
+} MemChannel;
+
 typedef struct {
     uint64_t size;
 
@@ -65,7 +75,8 @@ typedef struct {
     bool is_empty;
 } WriteQueue;
 
-#define WRITE_QUEUE_NUMS
+#define WRITE_QUEUE_NUMS 8
+
 typedef struct {
     // Array of write-queues
     WriteQueue *wqs;
@@ -82,6 +93,9 @@ typedef struct {
 typedef struct {
     MemTopology topology;
     MemTopologyOffsets offsets;
+
+    uint8_t channels_number;
+    MemChannel *channels;
 
     WriteBuffer wbuf;
 } MemController;

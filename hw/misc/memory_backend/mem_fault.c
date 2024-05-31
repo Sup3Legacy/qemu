@@ -3,7 +3,7 @@
 #include "hw/sysbus.h" /* provides all sysbus registering func */
 #include "hw/misc/memory_backend/mem_fault.h"
 
-static void fault_model_init(FaultModel *fm) {
+void fault_model_init(FaultModel *fm) {
     fm->dq_pullups = 0;
     fm->dq_pulldowns = 0;
 
@@ -14,9 +14,9 @@ static void fault_model_init(FaultModel *fm) {
     fm->ba_pulldowns = 0;
 }
 
-// Applies a fault model to the input value
-// FIXME: Deprecated, to revisit
-static uint64_t apply_fault(FaultHandler *handler, uint64_t val) {
-    return (val & (~ handler->active_model.pulldowns)) | handler->active_model.pullups;
+// Apply the fault model `fm` to the DDR message `msg`
+void apply_fault_model(FaultModel *fm, DDRMessage *msg) {
+    msg->body.dq = (msg->body.dq | fm->dq_pullups) & (~ fm->dq_pulldowns);
+    msg->body.a = (msg->body.a | fm->a_pullups) & (~ fm->a_pulldowns);
+    msg->body.ba = (msg->body.ba | fm->ba_pullups) & (~ fm->ba_pulldowns);
 }
-

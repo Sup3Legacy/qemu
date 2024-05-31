@@ -35,6 +35,7 @@ system_ss.add(when: 'CONFIG_SIFIVE_U_OTP', if_true: files('sifive_u_otp.c'))
 system_ss.add(when: 'CONFIG_SIFIVE_U_PRCI', if_true: files('sifive_u_prci.c'))
 
 subdir('macio')
+subdir('memory_backend')
 
 system_ss.add(when: 'CONFIG_IVSHMEM_DEVICE', if_true: files('ivshmem.c'))
 
@@ -146,4 +147,3 @@ system_ss.add(when: 'CONFIG_SBSA_REF', if_true: files('sbsa_ec.c'))
 # HPPA devices
 system_ss.add(when: 'CONFIG_LASI', if_true: files('lasi.c'))
 
-system_ss.add(when: 'CONFIG_MMIO_MEM', if_true: files('mmio_mem.c', 'cache_sim.c', 'mem_controller.c', 'mem_backend.c', 'mem_fault.c'))

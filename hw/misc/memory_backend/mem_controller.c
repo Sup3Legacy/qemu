@@ -57,6 +57,16 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     offsets->column_mask = (1 << topo->column_width_log2) - 1;
 }
 
+// TODO: placethis elsewhere
+// CONTRACT: length must be such that the requested memory segment can be handed
+// out in one go, contiguously
+void mem_channel_read(MemChannel *channel, char *destination, MemCoords *coords, uint64_t length) {
+    // NOTE: Okay, here I'm stuck. How do I work from here? I understand how a
+    // single RAM DIMM receives bank/row/column information. But what am I
+    // supposed to do with rank/group dimensions? I'm still a bit confused about
+    // RAM topology tho
+}
+
 // TODO: move elsewhere
 // CONTRACT: Assumes the RAM topology has been registered and all offsets and
 // masks have been computed; i.e. `*mc` was correctly initialized
@@ -65,14 +75,37 @@ void memory_read(MemController *mc, char *destination, uint64_t address, uint64_
     uint8_t channel_idx;
     MemChannel *channel;
 
-    // TODO: check that the address is withing bounds of the ram controller.
-    // this then ensures all coordinates valid (assuming the
-    // address-to-coordinates conversion is correct itself)
+    // Store initial data pointer and memory segment information.
+    // Will get updated on-the-fly
+    uint64_t current_address = address;
+    uint64_t current_length = length;
+    char *current_destination = destination;
 
-    // Convert linear address to DDR2 coordinates
-    address_to_coords(mc, address, &coords);
-    channel_idx = coords.channel;
-    channel = &mc->channels[channel_idx];
+    // TODO: this is the size of memory segments that can be retreived from a
+    // channel at once. Basically the size of the lowest (in bit-mapping) memory
+    // topology dimension
+    uint64_t step_size = 512;
+
+    uint64_t step_delta;
+
+    while (current_length > 0) {
+        // TODO: check that the address is withing bounds of the ram controller.
+        // this then ensures all coordinates valid (assuming the
+        // address-to-coordinates conversion is correct itself)
+
+        // Convert linear address to DDR2 coordinates
+        address_to_coords(mc, current_address, &coords);
+        channel_idx = coords.channel;
+        channel = &mc->channels[channel_idx];
+
+        step_delta = min(current_length, step_size - (current_address % step_size));
+
+        // TODO: request a transfer of size step_delta
+
+        current_destination = (char *)((size_t)current_destination + (size_t) step_delta);
+        current_address += step_delta;
+        current_length -= step_delta;
+    }
 
 
     

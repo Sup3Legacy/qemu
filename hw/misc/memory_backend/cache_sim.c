@@ -171,7 +171,7 @@ static Block *evict_and_free(Cache *cache, Set *set) {
             // Fallback in case of misconfigured cache unit:
             // evict the first block. That way, nothing is broken further down,
             // even though the high-level cache behaviour is... weird
-            evicted_block  = &set->blocks[0];
+            evicted_block = &set->blocks[0];
             break;
             
         // TODO: implement the other eviction policies

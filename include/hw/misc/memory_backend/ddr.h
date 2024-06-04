@@ -6,7 +6,7 @@
 
 // Type of a DDR request
 // 
-// This simulates a very simplified, functionnal version of the real requests as defined in the DDR spec.
+// This simulates a very simplified, functional version of the real requests as defined in the DDR spec.
 typedef enum {
     Activate,
     Write,

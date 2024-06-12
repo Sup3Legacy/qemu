@@ -9,7 +9,7 @@ static void address_to_coords(MemController *controller, uint64_t address, MemCo
     MemTopologyOffsets *offsets = &controller->offsets;
     // TODO: here are some implicit casts to uint8_t
     //       In practice, these should not overflow (no more than 2^8 channels,
-    //       ranks or groups)
+    //       ranks)
     coords->channel = (address >> offsets->channel_off) & offsets->channel_mask;
     coords->rank = (address >> offsets->rank_off) & offsets->rank_mask;
     coords->bank = (address >> offsets->bank_off) & offsets->bank_mask;
@@ -85,7 +85,7 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
 // CONTRACT: length must be such that the requested memory segment can be handed
 // out in one go, contiguously
 //
-// CONTRACT: `length` must be a multiple of 64
+// CONTRACT: `length` must be a multiple of 8
 //
 // TODO: this is the `read` implementation but will be easily generalized to
 // the `write` operation.
@@ -133,7 +133,7 @@ void mem_channel_read(MemController *mc, MemChannel *channel, char *destination,
         channel->activated_bank = coords.bank;
     }
 
-    // Divide the length by 8 because were handling a 64-bit wide bus
+    // Divide the length by 8 because were handling a 64-bit = 8-byte wide bus
     for (int i = 0; i < length / 8; i++) {
         
         msg.type = (i == 0 ? Read : ReadBurstContinue);
@@ -163,7 +163,7 @@ void mem_channel_read(MemController *mc, MemChannel *channel, char *destination,
 // CONTRACT: Assumes the RAM topology has been registered and all offsets and
 // masks have been computed; i.e. `*mc` was correctly initialized
 //
-// CONTRACT: `address` has to be 64 aligned and `length` a multiple of 64
+// CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
 void memory_read(MemController *mc, char *destination, uint64_t address, uint64_t length) {
     MemCoords coords;
     uint8_t channel_idx;
@@ -171,7 +171,8 @@ void memory_read(MemController *mc, char *destination, uint64_t address, uint64_
 
 
     // We make steps of at most the lowest topological dimension's size.
-    uint64_t step_size_bound = 1 << (mc->topology.log2s[0]);
+    // NOTE: in principle, this will always be the column dimension...
+    uint64_t step_size_bound = 1 << (mc->topology.log2s[0] - 3);
     // Within this bound, we can can read either 64 bits or a burst of length
     // `mc->burst_length`. It is expressed in *bytes*
     uint64_t step_size_burst = 8 * (mc->topology.topological_order[0] == Column ? mc->burst_length : 1);
@@ -193,7 +194,7 @@ void memory_read(MemController *mc, char *destination, uint64_t address, uint64_
         channel_idx = coords.channel;
         channel = &mc->channels[channel_idx];
 
-        // Minimum of:
+        // Minimum (in *bytes*) of:
         // - current remaining left from the requested operation
         // - size that is permitted by the burst policy
         // - size that is contiguously mapped to memory as in memory mapping

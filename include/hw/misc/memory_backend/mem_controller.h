@@ -122,7 +122,7 @@ typedef struct {
  * lines (as a linked-list or an array?)
  *
  * On received:
- * - Write: check all write queue (hint: store important fats to speed up
+ * - Write: check all write queue (hint: store important facts to speed up
  *   lookup):
  *   + if cache-line is directly adjacent to the wq's end, enqueue it.
  *   + if already present somewhere (might this happen?), replace present line

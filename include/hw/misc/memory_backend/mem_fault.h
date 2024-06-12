@@ -27,6 +27,9 @@ typedef struct {
 
     uint8_t ba_pullups;
     uint8_t ba_pulldowns;
+
+    uint8_t s_pullups;
+    uint8_t s_pulldowns;
 } FaultModel;
 
 #endif

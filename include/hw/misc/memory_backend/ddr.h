@@ -27,6 +27,11 @@ typedef struct {
 
         // A0-15 pins
         uint16_t a;
+
+        // S0-S1 pins
+        // NOTE: From what I understand, this enables to select between both
+        // sides of a two-sided (= two-ranked?) DIMM
+        uint8_t s;
     } body;
 } DDRMessage;
 

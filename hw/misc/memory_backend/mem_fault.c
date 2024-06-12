@@ -12,6 +12,9 @@ void fault_model_init(FaultModel *fm) {
 
     fm->ba_pullups = 0;
     fm->ba_pulldowns = 0;
+
+    fm->s_pullups = 0;
+    fm->s_pulldowns = 0;
 }
 
 // Apply the fault model `fm` to the DDR message `msg`
@@ -19,4 +22,5 @@ void apply_fault_model(FaultModel *fm, DDRMessage *msg) {
     msg->body.dq = (msg->body.dq | fm->dq_pullups) & (~ fm->dq_pulldowns);
     msg->body.a = (msg->body.a | fm->a_pullups) & (~ fm->a_pulldowns);
     msg->body.ba = (msg->body.ba | fm->ba_pullups) & (~ fm->ba_pulldowns);
+    msg->body.s = (msg->body.s | fm->s_pullups) & (~ fm->s_pulldowns);
 }

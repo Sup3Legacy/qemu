@@ -20,7 +20,7 @@ typedef struct {
 
     struct {
         // Data bits
-        uint8_t dq;
+        uint64_t dq;
 
         // BA0-2 pins
         uint8_t ba;
@@ -30,7 +30,11 @@ typedef struct {
 
         // S0-S1 pins
         // NOTE: From what I understand, this enables to select between both
-        // sides of a two-sided (= two-ranked?) DIMM
+        // sides of a two-sided (= two-ranked?) DIMM as well as between DIMMs
+        // within a channel. At this level, it doesn't really matter how the
+        // ranks are distributed accross DIMMS.
+        // E.g. a config with 2 channel, each of which having 2 2-sided DIMMs
+        // will have 8 ranks in total, 4 per channel
         uint8_t s;
     } body;
 } DDRMessage;

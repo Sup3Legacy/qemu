@@ -5,30 +5,7 @@
 #include "qom/object.h"
 #include "hw/misc/memory_backend/mem_fault.h"
 #include "hw/misc/memory_backend/ddr.h"
-
-typedef enum {
-    Ready,
-    RowSelected,
-
-    // ?
-    Precharged,
-} ChannelState;
-
-// A struct containing the data and logic held by a physical memory channel
-//
-// Because the faults we target in the end happen on the per-channel traces, we
-// directly assign a fault handler to each channel.
-typedef struct {
-    FaultHandler fault_handler;
-
-    // Row that is currently selected
-    uint64_t selected_row;
-
-    // Data segment
-    char *data;
-
-    // TODO: fill-in the rest
-} MemChannel;
+#include "hw/misc/memory_backend/memory_channel.h"
 
 typedef struct {
     uint64_t size;

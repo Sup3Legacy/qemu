@@ -12,7 +12,6 @@ static void address_to_coords(MemController *controller, uint64_t address, MemCo
     //       ranks or groups)
     coords->channel = (address >> offsets->channel_off) & offsets->channel_mask;
     coords->rank = (address >> offsets->rank_off) & offsets->rank_mask;
-    coords->group = (address >> offsets->group_off) & offsets->group_mask;
     coords->bank = (address >> offsets->bank_off) & offsets->bank_mask;
     coords->row = (address >> offsets->row_off) & offsets->row_mask;
     coords->column = (address >> offsets->column_off) & offsets->column_mask;
@@ -24,7 +23,6 @@ static void address_to_coords(MemController *controller, uint64_t address, MemCo
 static void fill_log2s(MemTopology *topo) {
     topo->channels_log2 = log2i(topo->channels);
     topo->ranks_log2 = log2i(topo->ranks);
-    topo->groups_log2 = log2i(topo->groups);
     topo->banks_log2 = log2i(topo->banks);
     topo->rows_log2 = log2i(topo->rows);
     topo->column_width_log2 = log2i(topo->column_width);
@@ -33,25 +31,51 @@ static void fill_log2s(MemTopology *topo) {
 // CONTRACT: assumes `topo`'s log2s have been filled
 static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     int8_t offset = 0;
+    TopoType topo_type;
 
-    // Compute all offsets
-    // NOTE: Currently hardcoded as: "ro ch ra ba bg co"
-    offsets->column_off = offset;
-    offset += topo->column_width_log2;
-    offsets->group_off = offset;
-    offset += topo->groups_log2;
-    offsets->bank_off = offset;
-    offset += topo->banks_log2;
-    offsets->rank_off = offset;
-    offset += topo->ranks_log2;
-    offsets->channel_off = offset;
-    offset += topo->channels_log2;
-    offsets->row_off = offset;
+    // Loop over the coordinates in their given order and compute all their
+    // offsets. This is a topo-order-agnostic implementation
+    for (int i = 0; i < 5; i ++) {
+        topo_type = topo->topological_order[i];
+
+        switch (topo_type) {
+            case Channel:
+                offsets->channels_off = offset;
+                offset += topo->channels_log2;
+
+                topo->log2s[i] = topo->channels_log2;
+                break;
+            case Rank:
+                offsets->rank_off = offset;
+                offset += topo->ranks_log2;
+
+                topo->log2s[i] = topo->channels_log2;
+                break;
+            case Bank:
+                offsets->bank_off = offset;
+                offset += topo->banks_log2;
+
+                topo->log2s[i] = topo->banks_log2;
+                break;
+            case Row:
+                offsets->row_off = offset;
+                offsets += topo->rows_log2;
+
+                topo->log2s[i] = topo->rows_log2;
+                break;
+            case Column:
+                offsets->column_off = offset;
+                offset += topo->column_width_log2;
+
+                topo->log2s[i] = topo->column_width_log2;
+                break;
+        }
+
+    }
 
     // Compute all masks
     offsets->channel_mask = (1 << topo->channels_log2) - 1;
     offsets->rank_mask = (1 << topo->ranks_log2) - 1;
-    offsets->group_mask = (1 << topo->groups_log2) - 1;
     offsets->bank_mask = (1 << topo->banks_log2) - 1;
     offsets->row_mask = (1 << topo->rows_log2) - 1;
     offsets->column_mask = (1 << topo->column_width_log2) - 1;

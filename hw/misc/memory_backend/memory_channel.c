@@ -13,6 +13,7 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
 
             return 0;
         case Write:
+            // Data to be written is supplied (faulted) in msg->dq
             break;
         case Precharge:
             break;

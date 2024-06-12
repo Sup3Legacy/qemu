@@ -60,17 +60,19 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
 // TODO: placethis elsewhere
 // CONTRACT: length must be such that the requested memory segment can be handed
 // out in one go, contiguously
+//
+// CONTRACT: `length` must be a multiple of 64
 void mem_channel_read(MemChannel *channel, char *destination, MemCoords *coords, uint64_t length) {
     // NOTE: Okay, here I'm stuck. How do I work from here? I understand how a
     // single RAM DIMM receives bank/row/column information. But what am I
     // supposed to do with rank/group dimensions? I'm still a bit confused about
     // RAM topology tho
-}
 
-// TODO: move elsewhere
-// CONTRACT: Assumes the RAM topology has been registered and all offsets and
-// masks have been computed; i.e. `*mc` was correctly initialized
-void memory_read(MemController *mc, char *destination, uint64_t address, uint64_t length) {
+    // NOTE: One subtle thing: data burst transfer (typically 4 on DDR2, I'll
+    // want to support different modes, including x1, x2 and x8) will only have
+    // its start address affected by the fault. Subsequent reads will be normal,
+    // contiguous read without
+
     MemCoords coords;
     uint8_t channel_idx;
     MemChannel *channel;
@@ -106,6 +108,69 @@ void memory_read(MemController *mc, char *destination, uint64_t address, uint64_
         current_address += step_delta;
         current_length -= step_delta;
     }
+
+
+    
+    // TODO: check whether some parts have to be overlaid by data in the write
+    // buffer
+
+    return;
+}
+
+// CONTRACT: Assumes the RAM topology has been registered and all offsets and
+// masks have been computed; i.e. `*mc` was correctly initialized
+//
+// CONTRACT: `address` has to be 64 aligned and `length` a multiple of 64
+void memory_read(MemController *mc, char *destination, uint64_t address, uint64_t length) {
+    MemCoords coords;
+    uint8_t channel_idx;
+    MemChannel *channel;
+
+
+
+    if (mc->topology.channels == 1) {
+        // Edge-case: there is only one memory channel. We can directly call the
+        // channel access routine
+
+        address_to_coords(mc, address, &coords);
+        channel = &mc->channels[0];
+
+        // TODO: request a transfer to `channel`
+    } else {
+        // Memory topology has more than 1 channel. We need to split
+
+        // The idea is that we make an abstraction over memory channels, so we split
+        // the memory segment on channel boundaries to pass to the channel logic.
+        uint64_t step_size = 1 << (mc->offsets.channel_off);
+        uint64_t step_delta;
+
+        // Store initial data pointer and memory segment information.
+        // Will get updated on-the-fly
+        uint64_t current_address = address;
+        uint64_t current_length = length;
+        char *current_destination = destination;
+
+        while (current_length > 0) {
+            // TODO: check that the address is withing bounds of the ram controller.
+            // this then ensures all coordinates valid (assuming the
+            // address-to-coordinates conversion is correct itself)
+
+            // Convert linear address to DDR2 coordinates
+            address_to_coords(mc, current_address, &coords);
+            channel_idx = coords.channel;
+            channel = &mc->channels[channel_idx];
+
+            step_delta = min(current_length, step_size - (current_address % step_size));
+
+            // TODO: request a transfer of size step_delta
+
+            current_destination = (char *)((size_t)current_destination + (size_t)step_delta);
+            current_address += step_delta;
+            current_length -= step_delta;
+        }
+
+    }
+
 
 
     

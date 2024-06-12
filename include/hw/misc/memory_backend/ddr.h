@@ -9,12 +9,13 @@
 // This simulates a very simplified, functional version of the real requests as defined in the DDR spec.
 typedef enum {
     Activate,
-    Write,
     Read,
+    Write,
 
     // Non-standard DDR request. Serves to emulate the contiguous data read
     // by/written to the channel on a strobe.
-    BurstContinue,
+    ReadBurstContinue,
+    WriteBurstContinue,
 
     Precharge,
 } DDRMessageType;

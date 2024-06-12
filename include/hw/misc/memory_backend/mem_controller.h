@@ -90,6 +90,11 @@ typedef struct {
     MemChannel *channels;
 
     WriteBuffer wbuf;
+
+    // RAM access burst length
+    // Typically x4 on DDR2, but may be any reasonnable (as in <= 2^6 == 64)
+    // power of two
+    uint64_t burst_length;
 } MemController;
 
 /*

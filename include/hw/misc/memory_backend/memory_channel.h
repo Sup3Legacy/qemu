@@ -19,7 +19,15 @@ typedef enum {
 // Because the faults we target in the end happen on the per-channel traces, we
 // directly assign a fault handler to each channel.
 typedef struct {
-    FaultHandler fault_handler;
+    // TODO: make this more elegant
+    // For now, will hold a pointer to the same field in the memory controller
+    // struct. This is used to index within the `data` host memory segment.
+    MemTopology *topology;
+
+    FaultModel fault_model;
+
+    // -1 is none
+    uint64_t activated_bank;
 
     // Row that is currently selected
     uint64_t selected_row;
@@ -28,10 +36,17 @@ typedef struct {
     uint64_t current_column;
 
     // Data segment
-    char *data;
-
-    // TODO: fill-in the rest
+    // length = ranks * banks * rows * columns / 64
+    uint64_t *data;
 } MemChannel;
+
+static uint64_t *coords_to_ptr(MemChannel *ch, uint64_t rank, uint64_t bank, uint64_t row, uint64_t reduced_column) {
+    MemTopology *topo = ch->topology;
+
+    // TODO: check this
+    return &(ch->data[(rank << topo->ranks_log2) + (bank << topo->banks_log2)
+                      + (row << topo->rows_log2) + (reduced_column << topo->topo_log2)]);
+}
 
 // Simulates the handling of a DDR instruction by a memory channel. The
 // instruction is described in `msg`. The simulation function may return some

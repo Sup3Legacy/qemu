@@ -35,7 +35,8 @@ typedef struct {
     TopoType topological_order[5];
 
 
-    // NOTE: derive width of column?
+    // CONTRACT: must be >= (cache line size) x (burst size)
+    // i.e. >= 64 x 4 (4 in general)
     uint32_t column_width;
 
     // NOTE: Derived log2s

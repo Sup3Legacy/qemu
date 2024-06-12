@@ -28,7 +28,7 @@ static void fill_log2s(MemTopology *topo) {
     topo->column_width_log2 = log2i(topo->column_width);
 }
 
-// CONTRACT: assumes `topo`'s log2s have been filled
+// CONTRACT: assumes `topo`'s *_log2 have been filled
 static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     int8_t offset = 0;
     TopoType topo_type;
@@ -86,7 +86,10 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
 // out in one go, contiguously
 //
 // CONTRACT: `length` must be a multiple of 64
-void mem_channel_read(MemController *mc, MemChannel *channel, char *destination, MemCoords *start_coords, uint64_t length) {
+//
+// TODO: this is the `read` implementation but will be easily generalized to
+// the `write` operation.
+void mem_channel_read(MemController *mc, MemChannel *channel, char *destination, MemCoords *coords, uint64_t length) {
     // NOTE: Okay, here I'm stuck. How do I work from here? I understand how a
     // single RAM DIMM receives bank/row/column information. But what am I
     // supposed to do with rank/group dimensions? I'm still a bit confused about
@@ -105,42 +108,56 @@ void mem_channel_read(MemController *mc, MemChannel *channel, char *destination,
     // interpret said commands and perform requested action
 
     // DDR message value. Will be used extensively back-and-forth between this
-    // memory controller and the memory channel
+    // memory controller and the memory channel.
     DDRMessage msg;
 
-    // DDR burst length
-    uint64_t burst_length = mc->burst_length;
+    // FIXME: this requires that the memory topology has <= 4 ranks per channel.
+    msg.s = coords->rank;
 
+    // If we've switched to a different bank since the last time this channel
+    // was used, send a `bank activate` request.
+    if (channel->activated_bank != coords.bank) {
+        msg.type = Activate;
+        // TODO: fill-in the bank (and row?)
+        
+        // FIXME: also their can only be 8 banks per chip.
+        msg.ba = coords.bank;
 
-    // TODO: fill this
-    uint64_t current_address;
+        // Apply the fault on the DDR request message
+        apply_fault_model_msg(&channel->fault_model, &msg);
 
-    MemCoords coords = start_coords;
+        // send an Activate DDR request
+        memory_channel_instruct(channel, &msg);
 
-    // We only allow to use the DDR burst feature if the column is the first
-    // coordinate in the mapping.
-    //
-    // NOTE: This might be refined later, though, because there is nothing (?)
-    // preventing us to make bursts as long as the mapping of the row coordinate
-    // is higher than that of the column
-    //
-    // Can a bank's burst be paused while another bank is activated and be
-    // resumed as soon as we go back to it?
-    bool can_burst = (mc->offsets.column_off == 0);
-
-    while () {
-        address_to_coords(mc, current_address, &coords);
-
-        if (can_burst) {
-            // Well, if we can burst... Let's burst
-            // Thanks to the assumption made on bust capability, we know we are
-            // in such a state that addressing is column-first, so this should
-            // be semi-straight-forward.
-            // TODO 
-        }
+        // Store the currently active bank
+        channel->activated_bank = coords.bank;
     }
 
-    return;
+    // Divide the length by 8 because were handling a 64-bit wide bus
+    for (int i = 0; i < length / 8; i++) {
+        
+        msg.type = (i == 0 ? Read : BurstContinue);
+
+        // Apply the fault on the DDR request message
+        apply_fault_model_msg(&channel->fault_model, &msg);
+
+        // FIXME: replace next line with the request invocation
+        uint64_t returned_value = 0;
+
+        // Apply the fault model on the returned data
+        uint64_t faulted_returned_value = 
+            apply_fault_model_data(&channel->fault_model, returned_value);
+
+        // Move each byte to the destination buffer
+        //
+        // This should be endianess-agnostic, as the R and W operations are
+        // implemented in the same way and all accesses are always 64-bit wide.
+        //
+        // TODO: the backing memory should be a uint64_t[] for simplicity.
+        for (int j = 0; j < 8; j++) {
+            destination[i * 8 + j] = (char)(uint8_t)(faulted_returned_data >> (8 * j));
+        }
+    }
 }
 
 // CONTRACT: Assumes the RAM topology has been registered and all offsets and
@@ -152,52 +169,47 @@ void memory_read(MemController *mc, char *destination, uint64_t address, uint64_
     uint8_t channel_idx;
     MemChannel *channel;
 
-    if (mc->topology.channels == 1) {
-        // Edge-case: there is only one memory channel. We can directly call the
-        // channel access routine
 
-        address_to_coords(mc, address, &coords);
-        channel = &mc->channels[0];
+    // We make steps of at most the lowest topological dimension's size.
+    uint64_t step_size_bound = 1 << (mc->topology.log2s[0]);
+    // Within this bound, we can can read either 64 bits or a burst of length
+    // `mc->burst_length`. It is expressed in *bytes*
+    uint64_t step_size_burst = 8 * (mc->topology.topological_order[0] == Column ? mc->burst_length : 1);
+    uint64_t step_delta;
 
-        // Hand-off the read request to the memory channel controller
-        mem_channel_read(mc, channel, destination, &coords, length);
-    } else {
-        // Memory topology has more than 1 channel. We need to split
+    // Store initial data pointer and memory segment information.
+    // Will get updated on-the-fly
+    uint64_t current_address = address;
+    uint64_t current_length = length;
+    char *current_destination = destination;
 
-        // The idea is that we make an abstraction over memory channels, so we split
-        // the memory segment on channel boundaries to pass to the channel logic.
-        uint64_t step_size = 1 << (mc->offsets.channel_off);
-        uint64_t step_delta;
+    while (current_length > 0) {
+        // TODO: check that the address is withing bounds of the ram controller.
+        // this then ensures all coordinates valid (assuming the
+        // address-to-coordinates conversion is correct itself)
 
-        // Store initial data pointer and memory segment information.
-        // Will get updated on-the-fly
-        uint64_t current_address = address;
-        uint64_t current_length = length;
-        char *current_destination = destination;
+        // Convert linear address to DDR2 coordinates
+        address_to_coords(mc, current_address, &coords);
+        channel_idx = coords.channel;
+        channel = &mc->channels[channel_idx];
 
-        while (current_length > 0) {
-            // TODO: check that the address is withing bounds of the ram controller.
-            // this then ensures all coordinates valid (assuming the
-            // address-to-coordinates conversion is correct itself)
+        // Minimum of:
+        // - current remaining left from the requested operation
+        // - size that is permitted by the burst policy
+        // - size that is contiguously mapped to memory as in memory mapping
+        //   order
+        step_delta = min(current_length, 
+                min(step_size_burst, step_size_bound - 
+                    (current_address % step_size_bound))
+            );
 
-            // Convert linear address to DDR2 coordinates
-            address_to_coords(mc, current_address, &coords);
-            channel_idx = coords.channel;
-            channel = &mc->channels[channel_idx];
+        // TODO: request a transfer of size step_delta
+        mem_channel_read(mc, channel, current_destination, coords, step_delta);
 
-            step_delta = min(current_length, step_size - (current_address % step_size));
-
-            // TODO: request a transfer of size step_delta
-
-            current_destination = (char *)((size_t)current_destination + (size_t)step_delta);
-            current_address += step_delta;
-            current_length -= step_delta;
-        }
-
+        current_destination = (char *)((size_t)current_destination + (size_t)step_delta);
+        current_address += step_delta;
+        current_length -= step_delta;
     }
-
-
-
     
     // TODO: check whether some parts have to be overlaid by data in the write
     // buffer

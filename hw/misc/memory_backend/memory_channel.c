@@ -8,8 +8,10 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
 
     switch (msg->type) {
         case Activate:
+            // TODO: record selected bank and 
             break;
         case Read:
+            // TODO: record selected column
 
             return 0;
         case Write:

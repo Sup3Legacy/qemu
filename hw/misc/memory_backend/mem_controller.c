@@ -62,7 +62,7 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
 // out in one go, contiguously
 //
 // CONTRACT: `length` must be a multiple of 64
-void mem_channel_read(MemController *mc, MemChannel *channel, char *destination, MemCoords *coords, uint64_t length) {
+void mem_channel_read(MemController *mc, MemChannel *channel, char *destination, MemCoords *start_coords, uint64_t length) {
     // NOTE: Okay, here I'm stuck. How do I work from here? I understand how a
     // single RAM DIMM receives bank/row/column information. But what am I
     // supposed to do with rank/group dimensions? I'm still a bit confused about
@@ -86,6 +86,35 @@ void mem_channel_read(MemController *mc, MemChannel *channel, char *destination,
 
     // DDR burst length
     uint64_t burst_length = mc->burst_length;
+
+
+    // TODO: fill this
+    uint64_t current_address;
+
+    MemCoords coords = start_coords;
+
+    // We only allow to use the DDR burst feature if the column is the first
+    // coordinate in the mapping.
+    //
+    // NOTE: This might be refined later, though, because there is nothing (?)
+    // preventing us to make bursts as long as the mapping of the row coordinate
+    // is higher than that of the column
+    //
+    // Can a bank's burst be paused while another bank is activated and be
+    // resumed as soon as we go back to it?
+    bool can_burst = (mc->offsets.column_off == 0);
+
+    while () {
+        address_to_coords(mc, current_address, &coords);
+
+        if (can_burst) {
+            // Well, if we can burst... Let's burst
+            // Thanks to the assumption made on bust capability, we know we are
+            // in such a state that addressing is column-first, so this should
+            // be semi-straight-forward.
+            // TODO 
+        }
+    }
 
     return;
 }

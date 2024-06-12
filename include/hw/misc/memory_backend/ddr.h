@@ -11,6 +11,11 @@ typedef enum {
     Activate,
     Write,
     Read,
+
+    // Non-standard DDR request. Serves to emulate the contiguous data read
+    // by/written to the channel on a strobe.
+    BurstContinue,
+
     Precharge,
 } DDRMessageType;
 

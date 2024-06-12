@@ -24,6 +24,9 @@ typedef struct {
     // Row that is currently selected
     uint64_t selected_row;
 
+    // TODO: something to keep track of the current burst status?
+    uint64_t current_column;
+
     // Data segment
     char *data;
 

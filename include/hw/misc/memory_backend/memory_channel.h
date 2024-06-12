@@ -34,23 +34,7 @@ typedef struct {
 // instruction is described in `msg`. The simulation function may return some
 // data in the case fo a read (NB: will need to be masked by the fault handler.
 // Otherwise, `0` is returned.
-uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
-    // TODO 
-
-    switch (msg->type) {
-        case Activate:
-            break;
-        case Read:
-
-            return 0;
-        case Write:
-            break;
-        case Precharge:
-            break;
-    }
-
-    return 0;
-}
+uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg);
 
 #endif
 

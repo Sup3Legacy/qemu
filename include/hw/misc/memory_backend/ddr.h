@@ -39,4 +39,11 @@ typedef struct {
     } body;
 } DDRMessage;
 
+void fault_model_init(FaultModel *fm);
+
+// Apply the fault model `fm` to the DDR message `msg`
+void apply_fault_model_msg(FaultModel *fm, DDRMessage *msg);
+
+void apply_fault_model_data(FaultModel *fm, uint64_t data);
+
 #endif

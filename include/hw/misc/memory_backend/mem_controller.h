@@ -7,13 +7,21 @@
 #include "hw/misc/memory_backend/ddr.h"
 #include "hw/misc/memory_backend/memory_channel.h"
 
+// The type of a memory hierarchial element.
+// Values are fixed so as th be easier to be passed accross ABI and
+// kernel-emulator boundary.
 typedef enum {
-    Channel,
-    Rank,
-    Bank,
-    Row,
-    Column,
+    Channel = 0,
+    Rank    = 1,
+    Bank    = 2,
+    Row     = 3,
+    Column  = 4,
 } TopoType;
+
+// (Safely?) cast an integer to a `TopoType`.
+static TopoType topotype_from_int(uint8_t i) {
+    return (TopoType)i;
+}
 
 typedef struct {
     uint64_t size;

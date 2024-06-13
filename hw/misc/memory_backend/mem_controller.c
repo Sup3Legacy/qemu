@@ -122,12 +122,13 @@ void mem_channel_read(MemController *mc, MemChannel *channel, char *destination,
         
         // FIXME: also there can only be 8 banks per chip.
         msg.ba = coords.bank;
+        msg.a = coords.row;
 
         // Apply the fault on the DDR request message
         apply_fault_model_msg(&channel->fault_model, &msg);
 
         // send an Activate DDR request
-        memory_channel_instruct(channel, &msg);
+        uint64_t _unused_return = memory_channel_instruct(channel, &msg);
 
         // Store the currently active bank
         channel->activated_bank = coords.bank;
@@ -137,6 +138,7 @@ void mem_channel_read(MemController *mc, MemChannel *channel, char *destination,
     for (int i = 0; i < length / 8; i++) {
         
         msg.type = (i == 0 ? Read : ReadBurstContinue);
+        msg.a = coords.column;
 
         // Apply the fault on the DDR request message
         apply_fault_model_msg(&channel->fault_model, &msg);

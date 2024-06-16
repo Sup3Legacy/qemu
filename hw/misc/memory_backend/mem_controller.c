@@ -91,7 +91,7 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
 // the `write` operation.
 //
 // TODO: rename `channel` to avoid confusion with `channel->channel`...
-void mem_channel_send_operation(MemController *mc, MemChannelController *channel, char *destination, MemCoords *coords, uint64_t length) {
+void mem_channel_read(MemController *mc, MemChannelController *channel, char *destination, MemCoords *coords, uint64_t length) {
     // NOTE: Okay, here I'm stuck. How do I work from here? I understand how a
     // single RAM DIMM receives bank/row/column information. But what am I
     // supposed to do with rank/group dimensions? I'm still a bit confused about
@@ -161,13 +161,63 @@ void mem_channel_send_operation(MemController *mc, MemChannelController *channel
         //
         // TODO: the backing memory should be a uint64_t[] for simplicity.
         for (int j = 0; j < 8; j++) {
-            destination[i * 8 + j] = (char)(uint8_t)(faulted_returned_data >> (8 * j));
+            destination[i * 8 + j] = (char)(uint8_t)((faulted_returned_data >> (8 * j)) & 0xFF);
         }
     }
 }
 
-void mem_channel_read(MemController *mc, MemChannel *channel, char *destination, MemCoords *coords, uint64_t length) {
+// TODO: merge this with the read implementation
+//
+// NOTE: there are many similar comments in the read implementation that are not
+// present here.
+void mem_channel_write(MemController *mc, MemChannelController *channel, char *write, MemCoords *coords, uint64_t length) {
 
+    // DDR message value. Will be used extensively back-and-forth between this
+    // memory controller and the memory channel.
+    DDRMessage msg;
+
+    msg.s = coords->rank;
+
+    // If we've switched to a different bank since the last time this channel
+    // was used, send a `bank activate` request.
+    if (channel->activated_bank != coords.bank) {
+        msg.type = Activate;
+
+        msg.ba = coords.bank;
+        msg.a = coords.row;
+
+        // Apply the fault on the DDR request message
+        apply_fault_model_msg(&channel->fault_model, &msg);
+
+        // send an Activate DDR request
+        uint64_t _unused_return = memory_channel_instruct(channel, &msg);
+
+        // Store the currently active bank
+        channel->activated_bank = coords.bank;
+    }
+
+    // Divide the length by 8 because were handling a 64-bit = 8-byte wide bus
+    for (int i = 0; i < length / 8; i++) {
+        uint64_t to_send = 0;
+
+        for (int j = 0; j < 8; j++) {
+            //destination[i * 8 + j] = (char)(uint8_t)(faulted_returned_data >> (8 * j));
+            to_send |= source[i * 8 + j] << (8 * j);
+        }
+        
+        msg.type = (i == 0 ? Write : WriteBurstContinue);
+
+        msg.a = coords.column;
+        msg.dq = to_send;
+
+        // Apply the fault on the DDR request message
+        // NOTE: the currently defined and implemented fault model is
+        // involutive, so it's okay to apply the model multiple times on the
+        // same request register.
+        apply_fault_model_msg(&channel->fault_model, &msg);
+
+        uint64_t _unused_value = memory_channel_instruct(channel, &msg);
+    }
 }
 
 
@@ -178,7 +228,7 @@ void mem_channel_read(MemController *mc, MemChannel *channel, char *destination,
 void memory_read(MemController *mc, char *destination, uint64_t address, uint64_t length) {
     MemCoords coords;
     uint8_t channel_idx;
-    MemChannel *channel;
+    MemChannelController *channel;
 
 
     // We make steps of at most the lowest topological dimension's size.
@@ -217,6 +267,64 @@ void memory_read(MemController *mc, char *destination, uint64_t address, uint64_
 
         // TODO: request a transfer of size step_delta
         mem_channel_read(mc, channel, current_destination, coords, step_delta);
+
+        current_destination = (char *)((size_t)current_destination + (size_t)step_delta);
+        current_address += step_delta;
+        current_length -= step_delta;
+    }
+    
+    // TODO: check whether some parts have to be overlaid by data in the write
+    // buffer
+
+    return;
+}
+
+// CONTRACT: Assumes the RAM topology has been registered and all offsets and
+// masks have been computed; i.e. `*mc` was correctly initialized
+//
+// CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
+void memory_write(MemController *mc, char *source, uint64_t address, uint64_t length) {
+    MemCoords coords;
+    uint8_t channel_idx;
+    MemChannelController *channel;
+
+
+    // We make steps of at most the lowest topological dimension's size.
+    // NOTE: in principle, this will always be the column dimension...
+    uint64_t step_size_bound = 1 << (mc->topology.log2s[0] - 3);
+    // Within this bound, we can can read either 64 bits or a burst of length
+    // `mc->burst_length`. It is expressed in *bytes*
+    uint64_t step_size_burst = 8 * (mc->topology.topological_order[0] == Column ? mc->burst_length : 1);
+    uint64_t step_delta;
+
+    // Store initial data pointer and memory segment information.
+    // Will get updated on-the-fly
+    uint64_t current_address = address;
+    uint64_t current_length = length;
+    char *current_destination = destination;
+
+    while (current_length > 0) {
+        // TODO: check that the address is withing bounds of the ram controller.
+        // this then ensures all coordinates valid (assuming the
+        // address-to-coordinates conversion is correct itself)
+
+        // Convert linear address to DDR2 coordinates
+        address_to_coords(mc, current_address, &coords);
+        channel_idx = coords.channel;
+        channel = &mc->channels[channel_idx];
+
+        // Minimum (in *bytes*) of:
+        // - current remaining left from the requested operation
+        // - size that is permitted by the burst policy
+        // - size that is contiguously mapped to memory as in memory mapping
+        //   order
+        step_delta = min(current_length, 
+                min(step_size_burst, step_size_bound - 
+                    (current_address % step_size_bound))
+            );
+
+        // TODO: request a transfer of size step_delta
+        mem_channel_source(mc, channel, current_destination, coords, step_delta);
 
         current_destination = (char *)((size_t)current_destination + (size_t)step_delta);
         current_address += step_delta;

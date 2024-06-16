@@ -14,21 +14,38 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
 
     switch (msg->type) {
         case Activate:
-            // TODO: record selected bank and 
-            break;
+            // Record activated bank, row (and rank as a matter of fact)
+            ch->activated_bank = msg->body.ba & 0b00000111;
+            ch->selected_row = msg->body.a & ((1 << 16) - 1);
+            ch->selected_rank = msg->body.s & 0b00000011;
+            return 0;
+
         case Read:
-            // TODO: record selected column
+            // FIXME: bit/byte, how??
+            ch->current_column = msg->body.a;
 
         // Don't break from here, because there is a good logic overlap
         case ReadBurstContinue:
-            break;
+            uint64_t *ptr = coords_to_ptr_channel(ch);
+
+            uint64_t return_word = *ptr;
+            return return_word;
 
         case Write:
             // Data to be written is supplied (faulted) in msg->dq
+            // FIXME: bit/byte, how??
+            ch->current_column = msg->body.a;
             
         // Same thing here as for Read
         case WriteBurstContinue:
-            break;
+            uint64_t supplied_word = msg->body.dq;
+
+            // TODO: do the writing action
+            uint64_t *ptr = coords_to_ptr_channel(ch);
+            *ptr = supplied_word;
+
+            ch->current_column += 1;
+            return 0;
 
         // Do we do anything here? We don't really simulate bank behaviour.
         case Precharge:

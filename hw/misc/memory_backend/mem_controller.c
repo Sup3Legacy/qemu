@@ -89,7 +89,9 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
 //
 // TODO: this is the `read` implementation but will be easily generalized to
 // the `write` operation.
-void mem_channel_read(MemController *mc, MemChannel *channel, char *destination, MemCoords *coords, uint64_t length) {
+//
+// TODO: rename `channel` to avoid confusion with `channel->channel`...
+void mem_channel_send_operation(MemController *mc, MemChannelController *channel, char *destination, MemCoords *coords, uint64_t length) {
     // NOTE: Okay, here I'm stuck. How do I work from here? I understand how a
     // single RAM DIMM receives bank/row/column information. But what am I
     // supposed to do with rank/group dimensions? I'm still a bit confused about
@@ -141,10 +143,12 @@ void mem_channel_read(MemController *mc, MemChannel *channel, char *destination,
         msg.a = coords.column;
 
         // Apply the fault on the DDR request message
+        // NOTE: the currently defined and implemented fault model is
+        // involutive, so it's okay to apply the model multiple times on the
+        // same request register.
         apply_fault_model_msg(&channel->fault_model, &msg);
 
-        // FIXME: replace next line with the request invocation
-        uint64_t returned_value = 0;
+        uint64_t returned_value = memory_channel_instruct(channel, &msg);
 
         // Apply the fault model on the returned data
         uint64_t faulted_returned_value = 
@@ -161,6 +165,11 @@ void mem_channel_read(MemController *mc, MemChannel *channel, char *destination,
         }
     }
 }
+
+void mem_channel_read(MemController *mc, MemChannel *channel, char *destination, MemCoords *coords, uint64_t length) {
+
+}
+
 
 // CONTRACT: Assumes the RAM topology has been registered and all offsets and
 // masks have been computed; i.e. `*mc` was correctly initialized

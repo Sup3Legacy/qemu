@@ -40,7 +40,6 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
         case WriteBurstContinue:
             uint64_t supplied_word = msg->body.dq;
 
-            // TODO: do the writing action
             uint64_t *ptr = coords_to_ptr_channel(ch);
             *ptr = supplied_word;
 

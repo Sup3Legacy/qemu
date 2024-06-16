@@ -301,7 +301,7 @@ void memory_write(MemController *mc, char *source, uint64_t address, uint64_t le
     // Will get updated on-the-fly
     uint64_t current_address = address;
     uint64_t current_length = length;
-    char *current_destination = destination;
+    char *current_source = source;
 
     while (current_length > 0) {
         // TODO: check that the address is withing bounds of the ram controller.
@@ -324,9 +324,9 @@ void memory_write(MemController *mc, char *source, uint64_t address, uint64_t le
             );
 
         // TODO: request a transfer of size step_delta
-        mem_channel_source(mc, channel, current_destination, coords, step_delta);
+        mem_channel_source(mc, channel, current_source, coords, step_delta);
 
-        current_destination = (char *)((size_t)current_destination + (size_t)step_delta);
+        current_source = (char *)((size_t)current_source + (size_t)step_delta);
         current_address += step_delta;
         current_length -= step_delta;
     }

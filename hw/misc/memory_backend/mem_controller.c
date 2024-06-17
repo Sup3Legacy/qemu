@@ -84,12 +84,22 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
 void mem_channel_controller_init(MemChannelController *mcc) {
     MemTopology *topo = mcc->channel.topology;
     
+    // Compute channel memory segment size
     // FIXME: Is this correct?
     uint64_t mem_segment_size = 
         topo->ranks * topo->banks * topo->rows * topo->column_width;
 
     char *data_segment = g_malloc(mem_segment_size);
     // TODO: return on `NULL`
+
+    mcc->channel.data = data_segment;
+
+    // Initialize state-machine registers
+    mcc->activated_bank = (uint8_t)(int8_t)(-1);
+    mcc->channel.activated_bank = (uint8_t)(int8_t)(-1);
+    mcc->channel.selected_rank = (uint8_t)(int8_t)(-1);
+    mcc->channel.selected_row = (uint64_t)(int64_t)(-1);
+    mcc->channel.selected_column = (uint64_t)(int64_t)(-1);
 
     // TODO: give a way to change a model, or at least apply a static one
     fault_model_init(&mcc->fault_model);
@@ -107,9 +117,10 @@ void mem_controller_init(MemController *mc) {
     // TODO: return on `NULL`
 
     mc->channels = channel_controller_array;
+    mc->channels_count = mc->toplogy.channels;
     
     MemChannelController *channel_controller;
-    for (int i = 0; i < mc->topology.channels) {
+    for (int i = 0; i < mc->channels_count) {
         channel_controller = &mc->channels[i];
 
         // Give pointer to topology struct to the channel

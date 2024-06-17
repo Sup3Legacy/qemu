@@ -106,7 +106,7 @@ typedef struct {
     MemTopology topology;
     MemTopologyOffsets offsets;
 
-    uint8_t channels_number;
+    uint8_t channels_count;
     MemChannelController *channels;
 
     WriteBuffer wbuf;

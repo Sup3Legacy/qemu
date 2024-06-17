@@ -30,11 +30,14 @@ typedef struct {
     // Row that is currently selected
     uint64_t selected_row;
 
-    // Slightly abusive thing. But might make sense.
+    // Slightly abusive thing, as it is not in reality part of the state
+    // machine, it's just a physical MUX's argument. However, we might want to
+    // later mess with this part of the memory bus too, so including it here
+    // will make things simpler.
     uint8_t selected_rank;
 
     // TODO: something to keep track of the current burst status?
-    uint16_t current_column;
+    uint64_t current_column;
 
     // Data segment
     // length = ranks * banks * rows * columns / 64

@@ -512,7 +512,8 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
     l2->enable = request->l2.enable;
     l3->enable = request->l3.enable;
 
-    MockMemBackend *mem = &caches->mem;
+    // MockMemBackend *mem = &caches->mem;
+    mem = &caches->mem_controller;
 
     // Initialize memory backend
     if (setup_mem_backend(mem, request->mem_size, request->mem_offset)) {
@@ -555,8 +556,8 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
         } else {
             // Memory just after
             next_opaque = mem;
-            next_read = mem_read;
-            next_write = mem_write;
+            next_read = memory_read;
+            next_write = memory_write;
         }
 
         setup_cache(il1, request->il1.size, request->il1.block_size, request->il1.assoc, request->rp, next_opaque, next_read, next_write);
@@ -582,8 +583,8 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
         } else {
             // Memory just after
             next_opaque = mem;
-            next_read = mem_read;
-            next_write = mem_write;
+            next_read = memory_read;
+            next_write = memory_write;
         }
 
         setup_cache(l2, request->l2.size, request->l2.block_size, request->l2.assoc, request->rp, next_opaque, next_read, next_write);
@@ -598,8 +599,8 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
 
         // Memory just after
         next_opaque = mem;
-        next_read = mem_read;
-        next_write = mem_write;
+        next_read = memory_read;
+        next_write = memory_write;
 
         setup_cache(l3, request->l3.size, request->l3.block_size, request->l3.assoc, request->rp, next_opaque, next_read, next_write);
     }
@@ -633,7 +634,14 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
     mc->topology.banks = 8;
     mc->topology.rows = 1024;
     mc->topology.column_width = 1024;
-    mc->topology.topological_order = {Column, Row, Bank, Rank, Channel};
+    // mc->topology.topological_order = {Column, Row, Bank, Rank, Channel};
+    
+    mc->topology.topological_order[0] = Column;
+    mc->topology.topological_order[1] = Row;
+    mc->topology.topological_order[2] = Bank;
+    mc->topology.topological_order[3] = Rank;
+    mc->topology.topological_order[4] = Channel;
+
     mem_controller_init(mc);
     return 0;
 }

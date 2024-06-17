@@ -61,7 +61,7 @@ static uint64_t *coords_to_ptr(MemChannel *ch, uint64_t rank, uint64_t bank, uin
 
     // TODO: check this
     return &(ch->data[(rank << topo->ranks_log2) + (bank << topo->banks_log2)
-                      + (row << topo->rows_log2) + (reduced_column << topo->topo_log2)]);
+                      + (row << topo->rows_log2) + (reduced_column << topo->column_width_log2)]);
 }
 
 // FIXME: bit/byte?

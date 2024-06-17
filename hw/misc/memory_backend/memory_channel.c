@@ -12,6 +12,9 @@
 uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
     // TODO 
 
+    uint64_t supplied_word, return_word;
+    uint64_t *ptr;
+
     switch (msg->type) {
         case Activate:
             // Record activated bank, row (and rank as a matter of fact)
@@ -23,25 +26,25 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
         case Read:
             // FIXME: bit/byte, how??
             ch->current_column = msg->body.a;
-            uint64_t *ptr = coords_to_ptr_channel(ch);
+            ptr = coords_to_ptr_channel(ch);
 
-            uint64_t return_word = *ptr;
+            return_word = *ptr;
             return return_word;
 
         // Don't break from here, because there is a good logic overlap
         case ReadBurstContinue:
-            uint64_t *ptr = coords_to_ptr_channel(ch);
+            ptr = coords_to_ptr_channel(ch);
 
-            uint64_t return_word = *ptr;
+            return_word = *ptr;
             return return_word;
 
         case Write:
             // Data to be written is supplied (faulted) in msg->dq
             // FIXME: bit/byte, how??
             ch->current_column = msg->body.a;
-            uint64_t supplied_word = msg->body.dq;
+            supplied_word = msg->body.dq;
 
-            uint64_t *ptr = coords_to_ptr_channel(ch);
+            ptr = coords_to_ptr_channel(ch);
             *ptr = supplied_word;
 
             ch->current_column += 1;
@@ -49,9 +52,9 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
             
         // Same thing here as for Read
         case WriteBurstContinue:
-            uint64_t supplied_word = msg->body.dq;
+            supplied_word = msg->body.dq;
 
-            uint64_t *ptr = coords_to_ptr_channel(ch);
+            ptr = coords_to_ptr_channel(ch);
             *ptr = supplied_word;
 
             ch->current_column += 1;

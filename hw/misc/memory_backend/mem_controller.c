@@ -40,7 +40,7 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
 
         switch (topo_type) {
             case Channel:
-                offsets->channels_off = offset;
+                offsets->channel_off = offset;
                 offset += topo->channels_log2;
 
                 topo->log2s[i] = topo->channels_log2;
@@ -92,14 +92,14 @@ static void mem_channel_controller_init(MemChannelController *mcc) {
     char *data_segment = g_malloc(mem_segment_size);
     // TODO: return on `NULL`
 
-    mcc->channel.data = data_segment;
+    mcc->channel.data = (uint64_t *)data_segment;
 
     // Initialize state-machine registers
     mcc->activated_bank = (uint8_t)(int8_t)(-1);
     mcc->channel.activated_bank = (uint8_t)(int8_t)(-1);
     mcc->channel.selected_rank = (uint8_t)(int8_t)(-1);
     mcc->channel.selected_row = (uint64_t)(int64_t)(-1);
-    mcc->channel.selected_column = (uint64_t)(int64_t)(-1);
+    mcc->channel.current_column = (uint64_t)(int64_t)(-1);
 
     // TODO: give a way to change a model, or at least apply a static one
     fault_model_init(&mcc->fault_model);
@@ -109,7 +109,7 @@ static void mem_channel_controller_init(MemChannelController *mcc) {
 void mem_controller_init(MemController *mc) {
     // Compute and fill log2s and offsets/masks
     fill_log2s(&mc->topology);
-    fill_offsets(&mc->topology, &mc->offsets);
+    fill_offsets(&mc->offsets, &mc->topology);
 
     // Allocate and initialize channel controller
     MemChannelController *channel_controller_array = 

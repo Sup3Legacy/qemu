@@ -141,7 +141,7 @@ void mem_controller_init(MemController *mc) {
 // the `write` operation.
 //
 // TODO: rename `channel` to avoid confusion with `channel->channel`...
-static void mem_channel_read(MemController *mc, MemChannelController *channel, char *destination, MemCoords *coords, uint64_t length) {
+static void mem_channel_read(MemController *mc, MemChannelController *channel_controller, char *destination, MemCoords *coords, uint64_t length) {
     // NOTE: Okay, here I'm stuck. How do I work from here? I understand how a
     // single RAM DIMM receives bank/row/column information. But what am I
     // supposed to do with rank/group dimensions? I'm still a bit confused about
@@ -164,7 +164,7 @@ static void mem_channel_read(MemController *mc, MemChannelController *channel, c
     DDRMessage msg;
 
     // FIXME: this requires that the memory topology has <= 4 ranks per channel.
-    msg.s = coords->rank;
+    msg.body.s = coords->rank;
 
     // If we've switched to a different bank since the last time this channel
     // was used, send a `bank activate` request.
@@ -173,14 +173,14 @@ static void mem_channel_read(MemController *mc, MemChannelController *channel, c
         // TODO: fill-in the bank (and row?)
         
         // FIXME: also there can only be 8 banks per chip.
-        msg.ba = coords.bank;
-        msg.a = coords.row;
+        msg.body.ba = coords.bank;
+        msg.body.a = coords.row;
 
         // Apply the fault on the DDR request message
-        apply_fault_model_msg(&channel->fault_model, &msg);
+        apply_fault_model_msg(&channel_controller->fault_model, &msg);
 
         // send an Activate DDR request
-        uint64_t _unused_return = memory_channel_instruct(channel, &msg);
+        uint64_t _unused_return = memory_channel_instruct(&channel_controller->channel, &msg);
 
         // Store the currently active bank
         channel->activated_bank = coords.bank;
@@ -190,15 +190,15 @@ static void mem_channel_read(MemController *mc, MemChannelController *channel, c
     for (int i = 0; i < length / 8; i++) {
         
         msg.type = (i == 0 ? Read : ReadBurstContinue);
-        msg.a = coords.column;
+        msg.body.a = coords.column;
 
         // Apply the fault on the DDR request message
         // NOTE: the currently defined and implemented fault model is
         // involutive, so it's okay to apply the model multiple times on the
         // same request register.
-        apply_fault_model_msg(&channel->fault_model, &msg);
+        apply_fault_model_msg(&channel_controller->fault_model, &msg);
 
-        uint64_t returned_value = memory_channel_instruct(channel, &msg);
+        uint64_t returned_value = memory_channel_instruct(&channel_controller->channel, &msg);
 
         // Apply the fault model on the returned data
         uint64_t faulted_returned_value = 
@@ -220,27 +220,27 @@ static void mem_channel_read(MemController *mc, MemChannelController *channel, c
 //
 // NOTE: there are many similar comments in the read implementation that are not
 // present here.
-static void mem_channel_write(MemController *mc, MemChannelController *channel, char *write, MemCoords *coords, uint64_t length) {
+static void mem_channel_write(MemController *mc, MemChannelController *channel_controller, char *write, MemCoords *coords, uint64_t length) {
 
     // DDR message value. Will be used extensively back-and-forth between this
     // memory controller and the memory channel.
     DDRMessage msg;
 
-    msg.s = coords->rank;
+    msg.body.s = coords->rank;
 
     // If we've switched to a different bank since the last time this channel
     // was used, send a `bank activate` request.
     if (channel->activated_bank != coords.bank) {
         msg.type = Activate;
 
-        msg.ba = coords.bank;
-        msg.a = coords.row;
+        msg.body.ba = coords.bank;
+        msg.body.a = coords.row;
 
         // Apply the fault on the DDR request message
-        apply_fault_model_msg(&channel->fault_model, &msg);
+        apply_fault_model_msg(&channel_controller->fault_model, &msg);
 
         // send an Activate DDR request
-        uint64_t _unused_return = memory_channel_instruct(channel, &msg);
+        uint64_t _unused_return = memory_channel_instruct(&channel_controller->channel, &msg);
 
         // Store the currently active bank
         channel->activated_bank = coords.bank;
@@ -257,16 +257,16 @@ static void mem_channel_write(MemController *mc, MemChannelController *channel, 
         
         msg.type = (i == 0 ? Write : WriteBurstContinue);
 
-        msg.a = coords.column;
-        msg.dq = to_send;
+        msg.body.a = coords.column;
+        msg.body.dq = to_send;
 
         // Apply the fault on the DDR request message
         // NOTE: the currently defined and implemented fault model is
         // involutive, so it's okay to apply the model multiple times on the
         // same request register.
-        apply_fault_model_msg(&channel->fault_model, &msg);
+        apply_fault_model_msg(&channel_controller->fault_model, &msg);
 
-        uint64_t _unused_value = memory_channel_instruct(channel, &msg);
+        memory_channel_instruct(&channel_controller->channel, &msg);
     }
 }
 
@@ -275,7 +275,8 @@ static void mem_channel_write(MemController *mc, MemChannelController *channel, 
 // masks have been computed; i.e. `*mc` was correctly initialized
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
-void memory_read(MemController *mc, char *destination, uint64_t address, uint64_t length) {
+void memory_read(void *opaque, char *destination, uint64_t length, uint64_t address) {
+    MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;
     MemChannelController *channel;
@@ -310,13 +311,13 @@ void memory_read(MemController *mc, char *destination, uint64_t address, uint64_
         // - size that is permitted by the burst policy
         // - size that is contiguously mapped to memory as in memory mapping
         //   order
-        step_delta = min(current_length, 
-                min(step_size_burst, step_size_bound - 
+        step_delta = MIN(current_length, 
+                MIN(step_size_burst, step_size_bound - 
                     (current_address % step_size_bound))
             );
 
         // TODO: request a transfer of size step_delta
-        mem_channel_read(mc, channel, current_destination, coords, step_delta);
+        mem_channel_read(mc, channel, current_destination, &coords, step_delta);
 
         current_destination = (char *)((size_t)current_destination + (size_t)step_delta);
         current_address += step_delta;
@@ -333,7 +334,8 @@ void memory_read(MemController *mc, char *destination, uint64_t address, uint64_
 // masks have been computed; i.e. `*mc` was correctly initialized
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
-void memory_write(MemController *mc, char *source, uint64_t address, uint64_t length) {
+void memory_write(void *opaque, char *source, uint64_t length, uint64_t address) {
+    MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;
     MemChannelController *channel;
@@ -368,13 +370,13 @@ void memory_write(MemController *mc, char *source, uint64_t address, uint64_t le
         // - size that is permitted by the burst policy
         // - size that is contiguously mapped to memory as in memory mapping
         //   order
-        step_delta = min(current_length, 
-                min(step_size_burst, step_size_bound - 
+        step_delta = MIN(current_length, 
+                MIN(step_size_burst, step_size_bound - 
                     (current_address % step_size_bound))
             );
 
         // request a transfer of size step_delta
-        mem_channel_write(mc, channel, current_source, coords, step_delta);
+        mem_channel_write(mc, channel, current_source, &coords, step_delta);
 
         current_source = (char *)((size_t)current_source + (size_t)step_delta);
         current_address += step_delta;

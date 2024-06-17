@@ -1,6 +1,8 @@
 #ifndef HW_MEM_CONTROLLER_H
 #define HW_MEM_CONTROLLER_H
 
+#define MIN(a, b) (a) < (b) ? (a) : (b)
+
 #include <inttypes.h>
 #include "qom/object.h"
 #include "hw/misc/memory_backend/mem_fault.h"
@@ -83,9 +85,9 @@ static inline uint8_t log2i(uint64_t x) {
 
 void mem_controller_init(MemController *mc);
 
-void memory_read(MemController *mc, char *destination, uint64_t address, uint64_t length);
+void memory_read(void *mc, char *destination, uint64_t length, uint64_t address);
 
-void memory_write(MemController *mc, char *source, uint64_t address, uint64_t length) {
+void memory_write(void *mc, char *source, uint64_t lenght, uint64_t address) {
 
 
 /* 

@@ -25,6 +25,6 @@ void apply_fault_model_msg(FaultModel *fm, DDRMessage *msg) {
     msg->body.s = (msg->body.s | fm->s_pullups) & (~ fm->s_pulldowns);
 }
 
-void apply_fault_model_data(FaultModel *fm, uint64_t data) {
+uint64_t apply_fault_model_data(FaultModel *fm, uint64_t data) {
     return (data | fm->dq_pullups) & (~ fm->dq->pulldowns);
 }

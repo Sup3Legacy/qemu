@@ -222,7 +222,7 @@ static Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
 // We assume that `length` is smaller than this cache's block size.
 // Also, the alignment should be such that blocks do not cross block
 // boundaries of lower cache levels
-static void cache_read(void *opaque, uint8_t *destination, uint32_t length, uint64_t address) {
+static void cache_read(void *opaque, uint8_t *destination, uint64_t length, uint64_t address) {
     // Recast opaque pointer to a cache one
     Cache *cache = (Cache *)opaque;
 
@@ -267,7 +267,7 @@ static void cache_read(void *opaque, uint8_t *destination, uint32_t length, uint
 //
 // In particular, if the write location is nowhere in the cache, the write
 // percolates down to memory.
-static void cache_write(void *opaque, uint8_t *source, uint32_t length, uint64_t address, bool is_write_through) {
+static void cache_write(void *opaque, uint8_t *source, uint64_t length, uint64_t address, bool is_write_through) {
     Cache *cache = (Cache *)opaque;
 
     //printf("Try and write to cache @%lx with size %x.\n", address, length);
@@ -321,7 +321,7 @@ static void cache_write(void *opaque, uint8_t *source, uint32_t length, uint64_t
 }
 
 // Mock memory backend read callback
-static void mem_read(void *opaque, uint8_t *destination, uint32_t length, uint64_t address) {
+static void mem_read(void *opaque, uint8_t *destination, uint64_t length, uint64_t address) {
     MockMemBackend *mem = opaque;
 
     printf("Try and read from mem @%lx with size %x.\n", address, length);
@@ -340,7 +340,7 @@ static void mem_read(void *opaque, uint8_t *destination, uint32_t length, uint64
 }
 
 // Mock memory backend write callback
-static void mem_write(void *opaque, uint8_t *source, uint32_t length, uint64_t address, bool _is_write_through) {
+static void mem_write(void *opaque, uint8_t *source, uint64_t length, uint64_t address, bool _is_write_through) {
     MockMemBackend *mem = opaque;
 
     printf("Try and write to mem @%lx with size %x.\n", address, length);

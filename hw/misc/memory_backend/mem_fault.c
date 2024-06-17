@@ -26,5 +26,5 @@ void apply_fault_model_msg(FaultModel *fm, DDRMessage *msg) {
 }
 
 uint64_t apply_fault_model_data(FaultModel *fm, uint64_t data) {
-    return (data | fm->dq_pullups) & (~ fm->dq->pulldowns);
+    return (data | fm->dq_pullups) & (~ fm->dq_pulldowns);
 }

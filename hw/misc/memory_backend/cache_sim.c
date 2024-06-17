@@ -324,15 +324,15 @@ static void cache_write(void *opaque, uint8_t *source, uint64_t length, uint64_t
 static void mem_read(void *opaque, uint8_t *destination, uint64_t length, uint64_t address) {
     MockMemBackend *mem = opaque;
 
-    printf("Try and read from mem @%lx with size %x.\n", address, length);
+    printf("Try and read from mem @%lx with size %lx.\n", address, length);
     if (address < mem->offset) {
         // Read below memory segment
-        printf("Read below memory segment: %x @%lx.\n", length, address);
+        printf("Read below memory segment: %lx @%lx.\n", length, address);
         return;
     }
     if (address + length >= mem->offset + mem->size) {
         // Read over the memory segment
-        printf("Read over memory segment: %x @%lx.\n", length, address);
+        printf("Read over memory segment: %lx @%lx.\n", length, address);
         return;
     }
 
@@ -343,16 +343,16 @@ static void mem_read(void *opaque, uint8_t *destination, uint64_t length, uint64
 static void mem_write(void *opaque, uint8_t *source, uint64_t length, uint64_t address, bool _is_write_through) {
     MockMemBackend *mem = opaque;
 
-    printf("Try and write to mem @%lx with size %x.\n", address, length);
+    printf("Try and write to mem @%lx with size %lx.\n", address, length);
 
     if (address < mem->offset) {
         // Write below memory segment
-        printf("Write below memory segment: %x @%lx.\n", length, address);
+        printf("Write below memory segment: %lx @%lx.\n", length, address);
         return;
     }
     if (address + length >= mem->offset + mem->size) {
         // Write over the memory segment
-        printf("Write over memory segment: %x @%lx.\n", length, address);
+        printf("Write over memory segment: %lx @%lx.\n", length, address);
         return;
     }
     memcpy((char *)(address - mem->offset + (uint64_t)(mem->data)), source, length);
@@ -513,12 +513,7 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
     l3->enable = request->l3.enable;
 
     // MockMemBackend *mem = &caches->mem;
-    mem = &caches->mem_controller;
-
-    // Initialize memory backend
-    if (setup_mem_backend(mem, request->mem_size, request->mem_offset)) {
-        return 1;
-    }
+    MemController *mem = &caches->mem_controller;
 
     int enabled_caches[3];
     int nb_enabled_caches = 0;

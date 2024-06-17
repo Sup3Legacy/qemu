@@ -117,14 +117,14 @@ void mem_controller_init(MemController *mc) {
     // TODO: return on `NULL`
 
     mc->channels = channel_controller_array;
-    mc->channels_count = mc->toplogy.channels;
+    mc->channels_count = mc->topology.channels;
     
     MemChannelController *channel_controller;
-    for (int i = 0; i < mc->channels_count) {
+    for (int i = 0; i < mc->channels_count; i++) {
         channel_controller = &mc->channels[i];
 
         // Give pointer to topology struct to the channel
-        channel_controller.channel.topology = &mc->topology;
+        channel_controller->channel.topology = &mc->topology;
 
         // Recursively init channel controller
         mem_channel_controller_init(channel_controller);
@@ -168,29 +168,29 @@ static void mem_channel_read(MemController *mc, MemChannelController *channel_co
 
     // If we've switched to a different bank since the last time this channel
     // was used, send a `bank activate` request.
-    if (channel->activated_bank != coords.bank) {
+    if (channel_controller->activated_bank != coords->bank) {
         msg.type = Activate;
         // TODO: fill-in the bank (and row?)
         
         // FIXME: also there can only be 8 banks per chip.
-        msg.body.ba = coords.bank;
-        msg.body.a = coords.row;
+        msg.body.ba = coords->bank;
+        msg.body.a = coords->row;
 
         // Apply the fault on the DDR request message
         apply_fault_model_msg(&channel_controller->fault_model, &msg);
 
         // send an Activate DDR request
-        uint64_t _unused_return = memory_channel_instruct(&channel_controller->channel, &msg);
+        memory_channel_instruct(&channel_controller->channel, &msg);
 
         // Store the currently active bank
-        channel->activated_bank = coords.bank;
+        channel_controller->activated_bank = coords->bank;
     }
 
     // Divide the length by 8 because were handling a 64-bit = 8-byte wide bus
     for (int i = 0; i < length / 8; i++) {
         
         msg.type = (i == 0 ? Read : ReadBurstContinue);
-        msg.body.a = coords.column;
+        msg.body.a = coords->column;
 
         // Apply the fault on the DDR request message
         // NOTE: the currently defined and implemented fault model is
@@ -201,8 +201,8 @@ static void mem_channel_read(MemController *mc, MemChannelController *channel_co
         uint64_t returned_value = memory_channel_instruct(&channel_controller->channel, &msg);
 
         // Apply the fault model on the returned data
-        uint64_t faulted_returned_value = 
-            apply_fault_model_data(&channel->fault_model, returned_value);
+        uint64_t faulted_returned_data = 
+            apply_fault_model_data(&channel_controller->fault_model, returned_value);
 
         // Move each byte to the destination buffer
         //
@@ -220,7 +220,7 @@ static void mem_channel_read(MemController *mc, MemChannelController *channel_co
 //
 // NOTE: there are many similar comments in the read implementation that are not
 // present here.
-static void mem_channel_write(MemController *mc, MemChannelController *channel_controller, char *write, MemCoords *coords, uint64_t length) {
+static void mem_channel_write(MemController *mc, MemChannelController *channel_controller, char *source, MemCoords *coords, uint64_t length) {
 
     // DDR message value. Will be used extensively back-and-forth between this
     // memory controller and the memory channel.
@@ -230,20 +230,20 @@ static void mem_channel_write(MemController *mc, MemChannelController *channel_c
 
     // If we've switched to a different bank since the last time this channel
     // was used, send a `bank activate` request.
-    if (channel->activated_bank != coords.bank) {
+    if (channel_controller->activated_bank != coords->bank) {
         msg.type = Activate;
 
-        msg.body.ba = coords.bank;
-        msg.body.a = coords.row;
+        msg.body.ba = coords->bank;
+        msg.body.a = coords->row;
 
         // Apply the fault on the DDR request message
         apply_fault_model_msg(&channel_controller->fault_model, &msg);
 
         // send an Activate DDR request
-        uint64_t _unused_return = memory_channel_instruct(&channel_controller->channel, &msg);
+        memory_channel_instruct(&channel_controller->channel, &msg);
 
         // Store the currently active bank
-        channel->activated_bank = coords.bank;
+        channel_controller->activated_bank = coords->bank;
     }
 
     // Divide the length by 8 because were handling a 64-bit = 8-byte wide bus
@@ -257,7 +257,7 @@ static void mem_channel_write(MemController *mc, MemChannelController *channel_c
         
         msg.type = (i == 0 ? Write : WriteBurstContinue);
 
-        msg.body.a = coords.column;
+        msg.body.a = coords->column;
         msg.body.dq = to_send;
 
         // Apply the fault on the DDR request message
@@ -275,7 +275,7 @@ static void mem_channel_write(MemController *mc, MemChannelController *channel_c
 // masks have been computed; i.e. `*mc` was correctly initialized
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
-void memory_read(void *opaque, char *destination, uint64_t length, uint64_t address) {
+void memory_read(void *opaque, unsigned char *destination, uint64_t length, uint64_t address) {
     MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;
@@ -294,7 +294,7 @@ void memory_read(void *opaque, char *destination, uint64_t length, uint64_t addr
     // Will get updated on-the-fly
     uint64_t current_address = address;
     uint64_t current_length = length;
-    char *current_destination = destination;
+    char *current_destination = (char *)destination;
 
     while (current_length > 0) {
         // TODO: check that the address is withing bounds of the ram controller.
@@ -334,7 +334,7 @@ void memory_read(void *opaque, char *destination, uint64_t length, uint64_t addr
 // masks have been computed; i.e. `*mc` was correctly initialized
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
-void memory_write(void *opaque, char *source, uint64_t length, uint64_t address) {
+void memory_write(void *opaque, unsigned char *source, uint64_t length, uint64_t address, bool _unused) {
     MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;
@@ -353,7 +353,7 @@ void memory_write(void *opaque, char *source, uint64_t length, uint64_t address)
     // Will get updated on-the-fly
     uint64_t current_address = address;
     uint64_t current_length = length;
-    char *current_source = source;
+    char *current_source = (char *)source;
 
     while (current_length > 0) {
         // TODO: check that the address is withing bounds of the ram controller.

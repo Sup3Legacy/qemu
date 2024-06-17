@@ -2,7 +2,7 @@
 #define HW_MMIO_MEM_H
 
 #include "qom/object.h"
-#include "hw/misc/cache_sim.h"
+#include "hw/misc/memory_backend/cache_sim.h"
 #include "hw/misc/memory_backend/mem_controller.h"
 #include "hw/misc/memory_backend/mem_backend.h"
 #include "hw/misc/memory_backend/mem_fault.h"

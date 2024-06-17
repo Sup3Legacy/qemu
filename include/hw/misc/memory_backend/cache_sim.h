@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include "qom/object.h"
+#include "hw/misc/memory_backend/mem_controller.h"
 
 typedef unsigned __int128 uint128_t;
 
@@ -130,8 +131,12 @@ typedef struct {
     Cache l2;
     Cache l3;
 
-    // Temporary memory backend; just a wrapper around a buffer
-    MockMemBackend mem;
+    // // Temporary memory backend; just a wrapper around a buffer
+    // MockMemBackend mem;
+
+    // The underlying memory controller
+    // TODO: call its initializer
+    MemController mem_controller;
 
     // Behaviour toggles
     bool is_active;

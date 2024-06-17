@@ -624,5 +624,16 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
         caches->entry_point_data = mem;
     }
 
+    MemController *mc = &caches->mem_controller;
+
+    // NOTE: temporary hardcoded RAM topology config.
+    //       will be runtime-configurable.
+    mc->topology.channels = 2;
+    mc->topology.ranks = 4;
+    mc->topology.banks = 8;
+    mc->topology.rows = 1024;
+    mc->topology.column_width = 1024;
+    mc->topology.topological_order = {Column, Row, Bank, Rank, Channel};
+    mem_controller_init(mc);
     return 0;
 }

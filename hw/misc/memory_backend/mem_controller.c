@@ -81,6 +81,45 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     offsets->column_mask = (1 << topo->column_width_log2) - 1;
 }
 
+void mem_channel_controller_init(MemChannelController *mcc) {
+    MemTopology *topo = mcc->channel.topology;
+    
+    // FIXME: Is this correct?
+    uint64_t mem_segment_size = 
+        topo->ranks * topo->banks * topo->rows * topo->column_width;
+
+    char *data_segment = g_malloc(mem_segment_size);
+    // TODO: return on `NULL`
+
+    // TODO: give a way to change a model, or at least apply a static one
+    fault_model_init(&mcc->fault_model);
+}
+
+// CONTRACT: Only assumes `mc->topology` has been set.
+void mem_controller_init(MemController *mc) {
+    // Compute and fill log2s and offsets/masks
+    fill_log2s(&mc->topology);
+    fill_offsets(&mc->topology, &mc->offsets);
+
+    // Allocate and initialize channel controller
+    MemChannelController *channel_controller_array = 
+        g_malloc(mc->topology.channels * sizeof(MemChannelController));
+    // TODO: return on `NULL`
+
+    mc->channels = channel_controller_array;
+    
+    MemChannelController *channel_controller;
+    for (int i = 0; i < mc->topology.channels) {
+        channel_controller = &mc->channels[i];
+
+        // Give pointer to topology struct to the channel
+        channel_controller.channel.topology = &mc->topology;
+
+        // Recursively init channel controller
+        mem_channel_controller_init(channel_controller);
+    }
+}
+
 // TODO: place this elsewhere
 // CONTRACT: length must be such that the requested memory segment can be handed
 // out in one go, contiguously
@@ -337,6 +376,9 @@ void memory_write(MemController *mc, char *source, uint64_t address, uint64_t le
     return;
 }
 
+/* NOTE: This is the WIP write-queue implementation.
+ *       It should be moved out of here anyway.
+
 // NOTE: a full write-queue should be directly written in the same invocation
 
 // TEMP: remove this, useless?
@@ -475,3 +517,4 @@ void buffer_write(MemController *mc, char *data, uint64_t address, uint64_t leng
 void buffer_read(MemController *mc, char *destination, uint64_t address, uint64_t length) {
 
 }
+*/

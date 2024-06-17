@@ -148,6 +148,12 @@ static inline uint8_t log2i(uint64_t x) {
     return sizeof(uint64_t) * 8 - __builtin_clz(x) - 1 - 32;
 }
 
+void mem_controller_init(MemController *mc);
+
+void memory_read(MemController *mc, char *destination, uint64_t address, uint64_t length);
+
+void memory_write(MemController *mc, char *source, uint64_t address, uint64_t length) {
+
 
 /* 
  * DRamsim provides a way to configure the linear-to-topology mapping

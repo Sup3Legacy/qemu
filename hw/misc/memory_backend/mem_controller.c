@@ -81,7 +81,7 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     offsets->column_mask = (1 << topo->column_width_log2) - 1;
 }
 
-void mem_channel_controller_init(MemChannelController *mcc) {
+static void mem_channel_controller_init(MemChannelController *mcc) {
     MemTopology *topo = mcc->channel.topology;
     
     // Compute channel memory segment size
@@ -141,7 +141,7 @@ void mem_controller_init(MemController *mc) {
 // the `write` operation.
 //
 // TODO: rename `channel` to avoid confusion with `channel->channel`...
-void mem_channel_read(MemController *mc, MemChannelController *channel, char *destination, MemCoords *coords, uint64_t length) {
+static void mem_channel_read(MemController *mc, MemChannelController *channel, char *destination, MemCoords *coords, uint64_t length) {
     // NOTE: Okay, here I'm stuck. How do I work from here? I understand how a
     // single RAM DIMM receives bank/row/column information. But what am I
     // supposed to do with rank/group dimensions? I'm still a bit confused about
@@ -220,7 +220,7 @@ void mem_channel_read(MemController *mc, MemChannelController *channel, char *de
 //
 // NOTE: there are many similar comments in the read implementation that are not
 // present here.
-void mem_channel_write(MemController *mc, MemChannelController *channel, char *write, MemCoords *coords, uint64_t length) {
+static void mem_channel_write(MemController *mc, MemChannelController *channel, char *write, MemCoords *coords, uint64_t length) {
 
     // DDR message value. Will be used extensively back-and-forth between this
     // memory controller and the memory channel.
@@ -373,8 +373,8 @@ void memory_write(MemController *mc, char *source, uint64_t address, uint64_t le
                     (current_address % step_size_bound))
             );
 
-        // TODO: request a transfer of size step_delta
-        mem_channel_source(mc, channel, current_source, coords, step_delta);
+        // request a transfer of size step_delta
+        mem_channel_write(mc, channel, current_source, coords, step_delta);
 
         current_source = (char *)((size_t)current_source + (size_t)step_delta);
         current_address += step_delta;

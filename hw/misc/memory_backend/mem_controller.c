@@ -157,7 +157,12 @@ void mem_controller_init(MemController *mc) {
 // the `write` operation.
 //
 // TODO: rename `channel` to avoid confusion with `channel->channel`...
-static void mem_channel_read(MemController *mc, MemChannelController *channel_controller, char *destination, MemCoords *coords, uint64_t length) {
+static void mem_channel_read(
+        MemController *mc, 
+        MemChannelController *channel_controller, 
+        char *destination, 
+        MemCoords *coords, 
+        uint64_t length) {
     // NOTE: Okay, here I'm stuck. How do I work from here? I understand how a
     // single RAM DIMM receives bank/row/column information. But what am I
     // supposed to do with rank/group dimensions? I'm still a bit confused about
@@ -236,7 +241,12 @@ static void mem_channel_read(MemController *mc, MemChannelController *channel_co
 //
 // NOTE: there are many similar comments in the read implementation that are not
 // present here.
-static void mem_channel_write(MemController *mc, MemChannelController *channel_controller, char *source, MemCoords *coords, uint64_t length) {
+static void mem_channel_write(
+        MemController *mc, 
+        MemChannelController *channel_controller, 
+        char *source, 
+        MemCoords *coords, 
+        uint64_t length) {
 
     // DDR message value. Will be used extensively back-and-forth between this
     // memory controller and the memory channel.

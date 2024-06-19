@@ -37,7 +37,7 @@ static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
 }
 
 static void mmio_mem_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
-	MMIOMemState *s = opaque;
+	volatile MMIOMemState *s = opaque;
     uint8_t bytes[8];
 
     to_bytes(val, bytes);
@@ -265,6 +265,8 @@ void mmio_mem_instance_init(Object *obj)
 	memory_region_init_io(&s->metrics_reg, obj, &metrics_reg_ops, s, TYPE_MMIO_MEM, 0x100);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
 	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->cache_config_reg);
+	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->fault_config_reg);
+	sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->metrics_reg);
     // TODO: same thing for the fautl config region
 
     // TODO: remove
@@ -275,6 +277,7 @@ void mmio_mem_instance_init(Object *obj)
 
     // TEMP: this will go at some point
     setup_caches(&s->caches, &cache_request);
+    printf("Memory backend setup finished.\n");
 }
 
 /* create a new type to define the info related to our device */
@@ -301,6 +304,8 @@ DeviceState *mmio_mem_create(hwaddr mem_addr, hwaddr config_addr, hwaddr metrics
 	sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
 	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, mem_addr);
 	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 1, config_addr);
-	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 2, metrics_addr);
+    sysbus_mmio_map(SYS_BUS_DEVICE(dev), 2, 0xfffee00);
+	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 3, metrics_addr);
+    printf("MMIO device created.\n");
 	return dev;
 }

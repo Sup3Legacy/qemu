@@ -316,7 +316,8 @@ static void cache_write(void *opaque, uint8_t *source, uint64_t length, uint64_t
         // Edge-case: if is_write_through and no level has the location cached,
         // only [address; address + length[ gets written back to memory, so ~8
         // bytes instead of l3->block_size...
-        (cache->lower_write)(cache->lower_cache, source, length, address, is_write_through);
+        uint64_t block_base = block_base_from_address(cache->block_size_log2, address);
+        (cache->lower_write)(cache->lower_cache, source, cache->block_size, block_base, is_write_through);
     }
 }
 
@@ -614,8 +615,8 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
         caches->entry_point_data = l3;
     } else {
         // Replace the cache methods with the memory one
-        caches->read_fct = mem_read;
-        caches->write_fct = mem_write;
+        caches->read_fct = memory_read;
+        caches->write_fct = memory_write;
         caches->entry_point_instruction = mem;
         caches->entry_point_data = mem;
     }
@@ -628,6 +629,7 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
     mc->topology.ranks = 4;
     mc->topology.banks = 8;
     mc->topology.rows = 1024;
+    //mc->topology.column_width = 1024;
     mc->topology.column_width = 1024;
     // mc->topology.topological_order = {Column, Row, Bank, Rank, Channel};
     
@@ -637,6 +639,10 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
     mc->topology.topological_order[3] = Rank;
     mc->topology.topological_order[4] = Channel;
 
+    mc->burst_length = 8;
+
     mem_controller_init(mc);
+
+    printf("Initialization finished.\n");
     return 0;
 }

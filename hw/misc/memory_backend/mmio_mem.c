@@ -195,15 +195,76 @@ static const MemoryRegionOps metrics_reg_ops = {
  * Fault configuration MMIO segment
  */
 
+/*
+ * Handles a read to the fualt model configuration MMIO region.
+ *
+ * In practice, this always returns 0.
+ *
+ */
 static uint64_t mmio_fault_config_read(void *opaque, hwaddr addr, unsigned int size) {
 	//MMIOMemState *s = opaque;
 
     return 0;
 }
 
+/*
+ * Handles a read to the fualt model configuration MMIO region.
+ *
+ * The layout is following:
+ *
+ * 00 uint64_t channel_id
+ * 08 uint64_t __unused
+ * 16 uint64_t dq_up
+ * 24 uint64_t dq_down
+ * 32 uint64_t a_up
+ * 40 uint64_t a_down
+ * 48 uint64_t ba_up
+ * 56 uint64_t ba_down
+ * 64 uint64_t s_up
+ * 72 uint64_t s_down
+ *
+ * FIXME: Currently ugly, need to refactor a bit.
+ *
+ */
 static void mmio_fault_config_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
-	//MMIOMemState *s = opaque;
+	MMIOMemState *s = opaque;
 
+    if (size != 8) {
+        printf("The fault model configuration only allows uint64_t write requests.");
+    }
+
+    switch (addr) {
+        case 0:
+            s->selected_fault_model_idx = val;        
+            break;
+        case 8:
+            // Unused
+            break;
+        case 16:
+            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.dq_pullups = val;
+            break;
+        case 24:
+            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.dq_pulldowns = val;
+            break;
+        case 32:
+            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.a_pullups = val;
+            break;
+        case 40:
+            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.a_pulldowns = val;
+            break;
+        case 48:
+            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.ba_pullups = val;
+            break;
+        case 56:
+            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.ba_pulldowns = val;
+            break;
+        case 64:
+            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.s_pullups = val;
+            break;
+        case 72:
+            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.s_pulldowns = val;
+            break;
+    }
     return;
 }
 

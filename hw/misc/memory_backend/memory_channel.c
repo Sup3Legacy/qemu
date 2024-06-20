@@ -29,6 +29,8 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
             ptr = coords_to_ptr_channel(ch);
 
             return_word = *ptr;
+
+            ch->current_column += 8;
             return return_word;
 
         // Don't break from here, because there is a good logic overlap
@@ -36,6 +38,8 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
             ptr = coords_to_ptr_channel(ch);
 
             return_word = *ptr;
+
+            ch->current_column += 8;
             return return_word;
 
         case Write:
@@ -47,7 +51,7 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
             ptr = coords_to_ptr_channel(ch);
             *ptr = supplied_word;
 
-            ch->current_column += 1;
+            ch->current_column += 8;
             return 0;
             
         // Same thing here as for Read
@@ -57,7 +61,7 @@ uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg) {
             ptr = coords_to_ptr_channel(ch);
             *ptr = supplied_word;
 
-            ch->current_column += 1;
+            ch->current_column += 8;
             return 0;
 
         // Do we do anything here? We don't really simulate bank behaviour.

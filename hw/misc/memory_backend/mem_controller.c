@@ -277,8 +277,8 @@ static void mem_channel_write(
         uint64_t to_send = 0;
 
         for (int j = 0; j < 8; j++) {
-            //destination[i * 8 + j] = (char)(uint8_t)(faulted_returned_data >> (8 * j));
-            to_send |= source[i * 8 + j] << (8 * j);
+            // destination[i * 8 + j] = (char)(uint8_t)((faulted_returned_data >> (8 * j)) & 0xFF);
+            to_send |= (uint64_t)(uint8_t)(source[i * 8 + j]) << (8 * j);
         }
         
         msg.type = (i == 0 ? Write : WriteBurstContinue);
@@ -302,7 +302,7 @@ static void mem_channel_write(
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
 void memory_read(void *opaque, unsigned char *destination, uint64_t length, uint64_t address) {
-    printf("memory read");
+    printf("Memory read: %lx @ %lx\n", length, address);
     MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;
@@ -362,7 +362,7 @@ void memory_read(void *opaque, unsigned char *destination, uint64_t length, uint
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
 void memory_write(void *opaque, unsigned char *source, uint64_t length, uint64_t address, bool _unused) {
-    printf("memory write");
+    printf("Memory write: %lx @ %lx\n", length, address);
     MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;

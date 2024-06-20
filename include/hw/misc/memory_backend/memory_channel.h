@@ -59,9 +59,13 @@ typedef struct {
 static uint64_t *coords_to_ptr(MemChannel *ch, uint64_t rank, uint64_t bank, uint64_t row, uint64_t reduced_column) {
     MemTopology *topo = ch->topology;
 
+    uint64_t offset = (rank << (topo->banks_log2 + topo->rows_log2 + topo->column_width_log2)) + (bank << (topo->rows_log2 + topo->column_width_log2))
+                      + (row << (topo->column_width_log2)) + (reduced_column);
+
+    printf("Accessing offset 0x%lx in the memory backend: rk %lx, bk %lx, ro %lx, co %lx.\n", offset, rank, bank, row, reduced_column);
+
     // TODO: check this
-    return &(ch->data[(rank << topo->ranks_log2) + (bank << topo->banks_log2)
-                      + (row << topo->rows_log2) + (reduced_column << topo->column_width_log2)]);
+    return &(ch->data[offset]);
 }
 
 // FIXME: bit/byte?

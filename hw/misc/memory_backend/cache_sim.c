@@ -316,6 +316,9 @@ static void cache_write(void *opaque, uint8_t *source, uint64_t length, uint64_t
         // Edge-case: if is_write_through and no level has the location cached,
         // only [address; address + length[ gets written back to memory, so ~8
         // bytes instead of l3->block_size...
+
+        // FIXME: This is broken! Because we would potentially write garbage
+        // data
         uint64_t block_base = block_base_from_address(cache->block_size_log2, address);
         (cache->lower_write)(cache->lower_cache, source, cache->block_size, block_base, is_write_through);
     }
@@ -512,6 +515,9 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
     dl1->enable = request->l1_enable;
     l2->enable = request->l2.enable;
     l3->enable = request->l3.enable;
+
+    // Taking into account the requested write policy is quite important...
+    caches->wp = request->wp;
 
     // MockMemBackend *mem = &caches->mem;
     MemController *mem = &caches->mem_controller;

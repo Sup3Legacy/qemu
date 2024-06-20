@@ -311,7 +311,7 @@ void memory_read(void *opaque, unsigned char *destination, uint64_t length, uint
 
     // We make steps of at most the lowest topological dimension's size.
     // NOTE: in principle, this will always be the column dimension...
-    uint64_t step_size_bound = 1 << (mc->topology.log2s[0] - 3);
+    uint64_t step_size_bound = 1 << mc->topology.log2s[0];
     // Within this bound, we can can read either 64 bits or a burst of length
     // `mc->burst_length`. It is expressed in *bytes*
     uint64_t step_size_burst = 8 * (mc->topology.topological_order[0] == Column ? mc->burst_length : 1);

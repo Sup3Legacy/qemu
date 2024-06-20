@@ -966,7 +966,7 @@ void pc_memory_init(PCMachineState *pcms,
     hwaddr cxl_base, cxl_resv_end = 0;
     X86CPU *cpu = X86_CPU(first_cpu);
 
-    (MMIOMemState *)mmio_mem_create(0xfffff00, 0xffff000, 0xfffee00);
+    (MMIOMemState *)mmio_mem_create(0xffff000, 0xfffec00, 0xfffed00, 0xfffee00);
     //mmio_mem_dev = (MMIOMemState *)mmio_mem_create(0x0);
     //mmio_mem_instance_init((Object *)mmio_mem_dev);
 

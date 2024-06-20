@@ -210,62 +210,41 @@ static uint64_t mmio_fault_config_read(void *opaque, hwaddr addr, unsigned int s
 /*
  * Handles a read to the fualt model configuration MMIO region.
  *
- * The layout is following:
- *
- * 00 uint64_t channel_id
- * 08 uint64_t __unused
- * 16 uint64_t dq_up
- * 24 uint64_t dq_down
- * 32 uint64_t a_up
- * 40 uint64_t a_down
- * 48 uint64_t ba_up
- * 56 uint64_t ba_down
- * 64 uint64_t s_up
- * 72 uint64_t s_down
- *
  * FIXME: Currently ugly, need to refactor a bit.
  *
  */
 static void mmio_fault_config_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
 	MMIOMemState *s = opaque;
 
-    if (size != 8) {
-        printf("The fault model configuration only allows uint64_t write requests.");
-    }
+    printf("Received mmio fault config write request.\n");
 
-    switch (addr) {
-        case 0:
-            s->selected_fault_model_idx = val;        
-            break;
-        case 8:
-            // Unused
-            break;
-        case 16:
-            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.dq_pullups = val;
-            break;
-        case 24:
-            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.dq_pulldowns = val;
-            break;
-        case 32:
-            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.a_pullups = val;
-            break;
-        case 40:
-            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.a_pulldowns = val;
-            break;
-        case 48:
-            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.ba_pullups = val;
-            break;
-        case 56:
-            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.ba_pulldowns = val;
-            break;
-        case 64:
-            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.s_pullups = val;
-            break;
-        case 72:
-            s->caches.mem_controller.channels[s->selected_fault_model_indx].fm.s_pulldowns = val;
-            break;
+    if (size == 1 && addr == 0) {
+        // We're writing to the channel index
+        s->selected_fault_model_index = val;        
+    } else {
+        // TODO: check out-of-bounds
+        FaultModel *fm = &s->caches.mem_controller.channels[s->selected_fault_model_index].fault_model;
+        switch (size) {
+            case 1:
+                uint8_t *ptr_8 = (uint8_t *)((size_t)fm + (addr - 8));
+                *ptr_8 = (uint8_t)val;
+                break;
+            case 2:
+                uint16_t *ptr_16 = (uint16_t *)((size_t)fm + (addr - 8));
+                *ptr_16= (uint16_t)val;
+                break;
+            case 4:
+                uint32_t *ptr_32 = (uint32_t *)((size_t)fm + (addr - 8));
+                *ptr_32 = (uint32_t)val;
+                break;
+            case 8:
+                uint64_t *ptr_64 = (uint64_t *)((size_t)fm + (addr - 8));
+                *ptr_64 = (uint64_t)val;
+                break;
+            default:
+                printf("Wrong size? %x\n.", size);
+        }
     }
-    return;
 }
 
 static const MemoryRegionOps fault_reg_ops = {
@@ -359,13 +338,13 @@ type_init(mmio_mem_register_types)
 /*
  * Create the device.
  */
-DeviceState *mmio_mem_create(hwaddr mem_addr, hwaddr config_addr, hwaddr metrics_addr)
+DeviceState *mmio_mem_create(hwaddr mem_addr, hwaddr config_addr, hwaddr fault_model_addr, hwaddr metrics_addr)
 {
 	DeviceState *dev = qdev_new(TYPE_MMIO_MEM);
 	sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
 	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, mem_addr);
 	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 1, config_addr);
-    sysbus_mmio_map(SYS_BUS_DEVICE(dev), 2, 0xfffee00);
+    sysbus_mmio_map(SYS_BUS_DEVICE(dev), 2, fault_model_addr);
 	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 3, metrics_addr);
     printf("MMIO device created.\n");
 	return dev;

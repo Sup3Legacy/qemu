@@ -22,10 +22,10 @@ typedef struct MMIOMemState_t {
     MemController mem_controller;
     MemBackend mem_backend;
 
-    uint8_t selected_fault_model_idx;
+    uint8_t selected_fault_model_index;
 } MMIOMemState;
 
-DeviceState *mmio_mem_create(hwaddr, hwaddr, hwaddr);
+DeviceState *mmio_mem_create(hwaddr, hwaddr, hwaddr, hwaddr);
 void mmio_mem_instance_init(Object *);
 
 #endif

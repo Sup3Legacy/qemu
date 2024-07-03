@@ -40,6 +40,7 @@ void info_vreport(const char *fmt, va_list ap) G_GNUC_PRINTF(1, 0);
 void error_report(const char *fmt, ...) G_GNUC_PRINTF(1, 2);
 void warn_report(const char *fmt, ...) G_GNUC_PRINTF(1, 2);
 void info_report(const char *fmt, ...) G_GNUC_PRINTF(1, 2);
+void tracing_report(const char *fmt, ...) G_GNUC_PRINTF(1, 2);
 
 bool error_report_once_cond(bool *printed, const char *fmt, ...)
     G_GNUC_PRINTF(2, 3);

@@ -22,6 +22,7 @@ typedef enum {
     REPORT_TYPE_ERROR,
     REPORT_TYPE_WARNING,
     REPORT_TYPE_INFO,
+    REPORT_TYPE_TRACING,
 } report_type;
 
 /* Prepend timestamp to messages */
@@ -212,6 +213,9 @@ static void vreport(report_type type, const char *fmt, va_list ap)
     print_loc();
 
     switch (type) {
+    case REPORT_TYPE_TRACING:
+        error_printf("trace: ");
+        break;
     case REPORT_TYPE_ERROR:
         break;
     case REPORT_TYPE_WARNING:
@@ -305,6 +309,22 @@ void info_report(const char *fmt, ...)
 
     va_start(ap, fmt);
     vreport(REPORT_TYPE_INFO, fmt, ap);
+    va_end(ap);
+}
+
+/*
+ * Print a tracing message to current monitor if we have one, else to
+ * stderr.
+ * Format arguments like sprintf(). The resulting message should be a
+ * single phrase, with no newline or trailing punctuation.
+ * Prepend the current location and append a newline.
+ */
+void tracing_report(const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    vreport(REPORT_TYPE_TRACING, fmt, ap);
     va_end(ap);
 }
 

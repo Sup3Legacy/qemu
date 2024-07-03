@@ -26,9 +26,9 @@ Block *find_in_cache(Cache *cache, uint64_t address) {
         Block *candidate_block = &candidate_set->blocks[i];
         if ((candidate_block->tag == address_tag) && (candidate_block->is_valid)) {
             // TODO: Maybe we can update the MLRU generation here
-            //printf("Found block of index %d, tag %ld, block_size_log2 %d, address %ld.\n", i, address_tag, cache->block_size_log2, address);
-            //printf("assoc_log2 %d, size_log2 %d, block_size %d.\n", cache->assoc_log2, cache->size_log2, cache->block_size);
-            //printf("truc %d.\n", log2i(64));
+            //tracing_report("Found block of index %d, tag %ld, block_size_log2 %d, address %ld.\n", i, address_tag, cache->block_size_log2, address);
+            //tracing_report("assoc_log2 %d, size_log2 %d, block_size %d.\n", cache->assoc_log2, cache->size_log2, cache->block_size);
+            //tracing_report("truc %d.\n", log2i(64));
 
             // We have found the block; this is a hit
             cache->metrics.hits += 1;
@@ -70,7 +70,11 @@ static Block *random_evict(Cache *cache, Set *set) {
     // Get next random value from PRNG
     uint64_t new_value = set_rng_next(set) % cache->assoc;
 
-    printf("Evicting block at index %lx.\n", new_value);
+    // TEMP: only used for the tracing
+    uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
+
+    tracing_report("evicting block at index %lx in set number %lx at level %s",
+            new_value, set_idx, cache_type_str(cache));
     return &set->blocks[new_value];
 }
 
@@ -205,7 +209,10 @@ static Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
         // No free block was found, set was full
         // We have to evict :>
 
-        printf("Line eviction needed.\n");
+        uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
+
+        tracing_report("need to evict block in set number %lx at level %s",
+                new_value, set_idx, cache_type_str(cache));
         allocated_block = evict_and_free(cache, set);
     }
 
@@ -226,7 +233,8 @@ static void cache_read(void *opaque, uint8_t *destination, uint64_t length, uint
     // Recast opaque pointer to a cache one
     Cache *cache = (Cache *)opaque;
 
-    //printf("Try and read from cache @%lx with size %x.\n", address, length);
+    tracing_report("read from cache @%lx with size %x at level %s",
+            address, length, cache_type_str(cache));
 
     // NOTE: Accesses from the CPU should not cross block lines.
     // WARN: this might happen, e.g. with unaligned accesses
@@ -237,7 +245,8 @@ static void cache_read(void *opaque, uint8_t *destination, uint64_t length, uint
     // By this point, the hit/miss in this level has been registered
     if (!candidate_block) {
         // If line not in cache, fetch from lower
-        printf("Data not in cache.\n");
+        tracing_report("address not in cache @%lx at level %s",
+                address, cache_type_str(cache));
 
         Set *destination_set = compute_set(cache, address);
         candidate_block = allocate_block(cache, destination_set, address);
@@ -247,14 +256,16 @@ static void cache_read(void *opaque, uint8_t *destination, uint64_t length, uint
         // Call the next level's read callback to populate this freshly
         // allocated cache block
         (cache->lower_read)(cache->lower_cache, candidate_block->data, cache->block_size, block_base);
-        //printf("Data fetched from lower level cache.\n");
+        tracing_report("data fetched from lower level @lx at level %s",
+                address, cache_type_str(cache));
     } else {
-        //printf("Data in cache.\n");
+        tracing_report("address already in cache @%lx at level %s",
+                address, cache_type_str(cache));
     }
 
     // Now that data is in cache, copy over the data
     char *offset_in_block = (char *)((uint64_t)candidate_block->data + (address % cache->block_size));
-    //printf("Going to copy from %lx to %lx with length %x.\n", (uint64_t)offset_in_block, (uint64_t)destination, length);
+    //tracing_report("Going to copy from %lx to %lx with length %x.\n", (uint64_t)offset_in_block, (uint64_t)destination, length);
 
     memcpy(destination, offset_in_block, length);
 }
@@ -270,7 +281,7 @@ static void cache_read(void *opaque, uint8_t *destination, uint64_t length, uint
 static void cache_write(void *opaque, uint8_t *source, uint64_t length, uint64_t address, bool is_write_through) {
     Cache *cache = (Cache *)opaque;
 
-    //printf("Try and write to cache @%lx with size %x.\n", address, length);
+    //tracing_report("Try and write to cache @%lx with size %x.\n", address, length);
 
     // Find corresponding block
     Block *block = find_in_cache(cache, address);
@@ -304,7 +315,7 @@ static void cache_write(void *opaque, uint8_t *source, uint64_t length, uint64_t
         } else {
             // Set block now dirty
             if (!block->is_dirty) {
-                printf("Marking block dirty.\n");
+                tracing_report("Marking block dirty.\n");
             }
             block->is_dirty = true;
         }
@@ -328,15 +339,15 @@ static void cache_write(void *opaque, uint8_t *source, uint64_t length, uint64_t
 static void mem_read(void *opaque, uint8_t *destination, uint64_t length, uint64_t address) {
     MockMemBackend *mem = opaque;
 
-    printf("Try and read from mem @%lx with size %lx.\n", address, length);
+    tracing_report("Try and read from mem @%lx with size %lx.\n", address, length);
     if (address < mem->offset) {
         // Read below memory segment
-        printf("Read below memory segment: %lx @%lx.\n", length, address);
+        tracing_report("Read below memory segment: %lx @%lx.\n", length, address);
         return;
     }
     if (address + length >= mem->offset + mem->size) {
         // Read over the memory segment
-        printf("Read over memory segment: %lx @%lx.\n", length, address);
+        tracing_report("Read over memory segment: %lx @%lx.\n", length, address);
         return;
     }
 
@@ -347,16 +358,16 @@ static void mem_read(void *opaque, uint8_t *destination, uint64_t length, uint64
 static void mem_write(void *opaque, uint8_t *source, uint64_t length, uint64_t address, bool _is_write_through) {
     MockMemBackend *mem = opaque;
 
-    printf("Try and write to mem @%lx with size %lx.\n", address, length);
+    tracing_report("Try and write to mem @%lx with size %lx.\n", address, length);
 
     if (address < mem->offset) {
         // Write below memory segment
-        printf("Write below memory segment: %lx @%lx.\n", length, address);
+        tracing_report("Write below memory segment: %lx @%lx.\n", length, address);
         return;
     }
     if (address + length >= mem->offset + mem->size) {
         // Write over the memory segment
-        printf("Write over memory segment: %lx @%lx.\n", length, address);
+        tracing_report("Write over memory segment: %lx @%lx.\n", length, address);
         return;
     }
     memcpy((char *)(address - mem->offset + (uint64_t)(mem->data)), source, length);
@@ -481,7 +492,7 @@ static int setup_mem_backend(MockMemBackend *mem, uint64_t size, uint64_t offset
     char *data = g_malloc(size);
     mem->data = data;
     if (!data) {
-        printf("Could not allocate memory backend memory.\n");
+        tracing_report("Could not allocate memory backend memory.\n");
         return 1;
     }
 
@@ -564,6 +575,8 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
 
         setup_cache(il1, request->il1.size, request->il1.block_size, request->il1.assoc, request->rp, next_opaque, next_read, next_write);
         setup_cache(dl1, request->dl1.size, request->dl1.block_size, request->dl1.assoc, request->rp, next_opaque, next_read, next_write);
+        il1->type = TYPE_L1I;
+        dl1->type = TYPE_L1D;
     }
 
     if (request->l2.enable) {
@@ -590,6 +603,7 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
         }
 
         setup_cache(l2, request->l2.size, request->l2.block_size, request->l2.assoc, request->rp, next_opaque, next_read, next_write);
+        l2->type = TYPE_L2;
     }
 
     if (request->l3.enable) {
@@ -605,6 +619,7 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
         next_write = memory_write;
 
         setup_cache(l3, request->l3.size, request->l3.block_size, request->l3.assoc, request->rp, next_opaque, next_read, next_write);
+        l3->type = TYPE_L3;
     }
 
     // Populate the methods and opaque pointers
@@ -649,6 +664,6 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
 
     mem_controller_init(mc);
 
-    printf("Initialization finished.\n");
+    tracing_report("initialization finished.\n");
     return 0;
 }

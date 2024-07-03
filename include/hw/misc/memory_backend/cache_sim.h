@@ -16,6 +16,14 @@ typedef unsigned __int128 uint128_t;
 typedef void (*lower_read_t)(void *opaque, uint8_t *destination, uint64_t length, uint64_t address);
 typedef void (*lower_write_t)(void *opaque, uint8_t *source, uint64_t length, uint64_t address, bool write_through);
 
+// Only used for tracing purposes
+typedef enum {
+    TYPE_L1I,
+    TYPE_L1D,
+    TYPE_L2,
+    TYPE_L3,
+} CacheType;
+
 typedef enum {
     LRU,
     MRU,
@@ -70,6 +78,9 @@ typedef struct {
 
 typedef struct {
     bool enable;
+
+    // Remember where this cache is located. Useful for tracing purposes
+    CacheType type;
     
     // Length is (size / (assoc * block_size))
     Set *sets;
@@ -111,6 +122,21 @@ typedef struct {
     uint8_t block_size_log2;
     uint8_t number_of_sets_log2;
 } Cache;
+
+// Returns a pointer to the string representing the cache level. Used for
+// tracing purposes
+static char *cache_type_str(Cache *cache) {
+    switch (cache->type) {
+        case TYPE_L1I:
+            return "L1I";
+        case TYPE_L1D:
+            return "L1D";
+        case TYPE_L2:
+            return "L2";
+        case TYPE_L3:
+            return "L3";
+    }
+}
 
 // Temporary backend to test the caches
 typedef struct {

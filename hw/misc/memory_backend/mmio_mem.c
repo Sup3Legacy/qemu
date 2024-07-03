@@ -24,14 +24,14 @@ static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
 
     uint8_t bytes[8] = {0};
 
-    printf("Received read @%lx with size %x\n", addr, size);
+    tracing_report("mmio read @%lx with size %x\n", addr, size);
     
     // INFO: for now, only handle `data` read, not `instruction` ones
     (s->caches.read_fct)(s->caches.entry_point_data, bytes, size, addr);
 
     uint64_t ret = from_bytes(bytes);
 
-    printf("Read: %lX.\n", ret);
+    // tracing_report("Read: %lX.\n", ret);
 
 	return ret;
 }
@@ -42,7 +42,7 @@ static void mmio_mem_write(void *opaque, hwaddr addr, uint64_t val, unsigned int
 
     to_bytes(val, bytes);
 
-    printf("Received write @%lx with size %x\n", addr, size);
+    tracing_report("mmio write @%lx with size %x\n", addr, size);
 
     (s->caches.write_fct)(s->caches.entry_point_data, bytes, size, addr, s->caches.wp == WRITE_THROUGH);
 }
@@ -98,12 +98,12 @@ static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, uns
         case 2:
             // (re)init caches
             // TODO: free memory if reiniting
-            printf("Reseting caches on guest request.\n");
+            tracing_report("guest requests cache reset.\n");
             setup_caches(&s->caches, &s->cache_config_req);
             break;
         case 3:
             // Flush all caches to main memory
-            printf("Flushing all caches on guest request.\n");
+            tracing_report("guest requests cache flush.\n");
             flush_caches(&s->caches);
             break;
         case 4:
@@ -208,7 +208,7 @@ static uint64_t mmio_fault_config_read(void *opaque, hwaddr addr, unsigned int s
 }
 
 /*
- * Handles a read to the fualt model configuration MMIO region.
+ * Handles a read to the fault model configuration MMIO region.
  *
  * FIXME: Currently ugly, need to refactor a bit.
  *
@@ -216,7 +216,7 @@ static uint64_t mmio_fault_config_read(void *opaque, hwaddr addr, unsigned int s
 static void mmio_fault_config_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
 	MMIOMemState *s = opaque;
 
-    printf("Received mmio fault config write request.\n");
+    tracing_report("fault model write %lx @ %lx, size %x.\n", val, addr, size);
 
     if (size == 1 && addr == 0) {
         // We're writing to the channel index
@@ -242,7 +242,7 @@ static void mmio_fault_config_write(void *opaque, hwaddr addr, uint64_t val, uns
                 *ptr_64 = (uint64_t)val;
                 break;
             default:
-                printf("Wrong size? %x\n.", size);
+                tracing_report("wrong size\n.");
         }
     }
 }
@@ -317,7 +317,7 @@ void mmio_mem_instance_init(Object *obj)
 
     // TEMP: this will go at some point
     setup_caches(&s->caches, &cache_request);
-    printf("Memory backend setup finished.\n");
+    tracing_report("memory backend setup finished.\n");
 }
 
 /* create a new type to define the info related to our device */
@@ -346,6 +346,6 @@ DeviceState *mmio_mem_create(hwaddr mem_addr, hwaddr config_addr, hwaddr fault_m
 	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 1, config_addr);
     sysbus_mmio_map(SYS_BUS_DEVICE(dev), 2, fault_model_addr);
 	sysbus_mmio_map(SYS_BUS_DEVICE(dev), 3, metrics_addr);
-    printf("MMIO device created.\n");
+    tracing_report("mmio device created.\n");
 	return dev;
 }

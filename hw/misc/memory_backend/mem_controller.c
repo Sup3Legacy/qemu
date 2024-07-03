@@ -37,7 +37,7 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     // offsets. This is a topo-order-agnostic implementation
     for (int i = 0; i < 5; i++) {
         topo_type = topo->topological_order[i];
-        printf("i.\n");
+        tracing_report("i.\n");
 
         switch (topo_type) {
             case Channel:
@@ -71,7 +71,7 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
                 topo->log2s[i] = topo->column_width_log2;
                 break;
             default:
-                printf("Invalid thing.\n");
+                tracing_report("Invalid thing.\n");
         }
 
     }
@@ -94,7 +94,7 @@ static void mem_channel_controller_init(MemChannelController *mcc) {
 
     char *data_segment = g_malloc(mem_segment_size);
     if (!data_segment) {
-        printf("Failed mem segment allocation.\n");
+        tracing_report("Failed mem segment allocation.\n");
     }
     // TODO: return on `NULL`
 
@@ -113,7 +113,7 @@ static void mem_channel_controller_init(MemChannelController *mcc) {
 
 // CONTRACT: Only assumes `mc->topology` has been set.
 void mem_controller_init(MemController *mc) {
-    printf("a\n");
+    tracing_report("a\n");
     // Compute and fill log2s and offsets/masks
     fill_log2s(&mc->topology);
     fill_offsets(&mc->offsets, &mc->topology);
@@ -124,16 +124,16 @@ void mem_controller_init(MemController *mc) {
     MemChannelController *channel_controller_array = 
         g_malloc(mc->channels_count * sizeof(MemChannelController));
     if (!channel_controller_array) {
-        printf("Failed mem channel controllers allocation.\n");
+        tracing_report("Failed mem channel controllers allocation.\n");
     }
     // TODO: return on `NULL`
 
     mc->channels = channel_controller_array;
 
-    printf("b\n");
+    tracing_report("b\n");
     MemChannelController *channel_controller;
     for (int i = 0; i < mc->channels_count; i++) {
-        printf("c\n");
+        tracing_report("c\n");
         channel_controller = &(mc->channels[i]);
 
         // Give pointer to topology struct to the channel
@@ -141,10 +141,10 @@ void mem_controller_init(MemController *mc) {
 
         // Recursively init channel controller
         mem_channel_controller_init(channel_controller);
-        printf("c'\n");
+        tracing_report("c'\n");
     }
 
-    printf("Memory controller initialized.\n");
+    tracing_report("Memory controller initialized.\n");
 }
 
 // TODO: place this elsewhere
@@ -302,7 +302,7 @@ static void mem_channel_write(
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
 void memory_read(void *opaque, unsigned char *destination, uint64_t length, uint64_t address) {
-    printf("Memory read: %lx @ %lx\n", length, address);
+    tracing_report("Memory read: %lx @ %lx\n", length, address);
     MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;
@@ -362,7 +362,7 @@ void memory_read(void *opaque, unsigned char *destination, uint64_t length, uint
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
 void memory_write(void *opaque, unsigned char *source, uint64_t length, uint64_t address, bool _unused) {
-    printf("Memory write: %lx @ %lx\n", length, address);
+    tracing_report("Memory write: %lx @ %lx\n", length, address);
     MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;

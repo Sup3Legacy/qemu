@@ -125,7 +125,7 @@ typedef struct {
 
 // Returns a pointer to the string representing the cache level. Used for
 // tracing purposes
-static char *cache_type_str(Cache *cache) {
+static const char *cache_type_str(Cache *cache) {
     switch (cache->type) {
         case TYPE_L1I:
             return "L1I";
@@ -136,6 +136,9 @@ static char *cache_type_str(Cache *cache) {
         case TYPE_L3:
             return "L3";
     }
+
+    // ???
+    return NULL;
 }
 
 // Temporary backend to test the caches

@@ -1,4 +1,5 @@
 #include "qemu/osdep.h"
+#include "qemu/error-report.h"
 #include "qapi/error.h" /* provides error_fatal() handler */
 #include "hw/sysbus.h" /* provides all sysbus registering func */
 #include "hw/misc/memory_backend/cache_sim.h"
@@ -212,7 +213,7 @@ static Block *allocate_block(Cache *cache, Set *set, uint64_t address) {
         uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
 
         tracing_report("need to evict block in set number %lx at level %s",
-                new_value, set_idx, cache_type_str(cache));
+                set_idx, cache_type_str(cache));
         allocated_block = evict_and_free(cache, set);
     }
 
@@ -233,7 +234,7 @@ static void cache_read(void *opaque, uint8_t *destination, uint64_t length, uint
     // Recast opaque pointer to a cache one
     Cache *cache = (Cache *)opaque;
 
-    tracing_report("read from cache @%lx with size %x at level %s",
+    tracing_report("read from cache @%lx with size %lx at level %s",
             address, length, cache_type_str(cache));
 
     // NOTE: Accesses from the CPU should not cross block lines.
@@ -256,7 +257,7 @@ static void cache_read(void *opaque, uint8_t *destination, uint64_t length, uint
         // Call the next level's read callback to populate this freshly
         // allocated cache block
         (cache->lower_read)(cache->lower_cache, candidate_block->data, cache->block_size, block_base);
-        tracing_report("data fetched from lower level @lx at level %s",
+        tracing_report("data fetched from lower level @%lx at level %s",
                 address, cache_type_str(cache));
     } else {
         tracing_report("address already in cache @%lx at level %s",

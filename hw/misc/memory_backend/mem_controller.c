@@ -38,7 +38,6 @@ static void fill_offsets(MemTopologyOffsets *offsets, MemTopology *topo) {
     // offsets. This is a topo-order-agnostic implementation
     for (int i = 0; i < 5; i++) {
         topo_type = topo->topological_order[i];
-        tracing_report("i.\n");
 
         switch (topo_type) {
             case Channel:
@@ -114,7 +113,6 @@ static void mem_channel_controller_init(MemChannelController *mcc) {
 
 // CONTRACT: Only assumes `mc->topology` has been set.
 void mem_controller_init(MemController *mc) {
-    tracing_report("a\n");
     // Compute and fill log2s and offsets/masks
     fill_log2s(&mc->topology);
     fill_offsets(&mc->offsets, &mc->topology);
@@ -125,16 +123,14 @@ void mem_controller_init(MemController *mc) {
     MemChannelController *channel_controller_array = 
         g_malloc(mc->channels_count * sizeof(MemChannelController));
     if (!channel_controller_array) {
-        tracing_report("Failed mem channel controllers allocation.\n");
+        tracing_report("Failed mem channel controllers allocation");
     }
     // TODO: return on `NULL`
 
     mc->channels = channel_controller_array;
 
-    tracing_report("b\n");
     MemChannelController *channel_controller;
     for (int i = 0; i < mc->channels_count; i++) {
-        tracing_report("c\n");
         channel_controller = &(mc->channels[i]);
 
         // Give pointer to topology struct to the channel
@@ -142,10 +138,9 @@ void mem_controller_init(MemController *mc) {
 
         // Recursively init channel controller
         mem_channel_controller_init(channel_controller);
-        tracing_report("c'\n");
     }
 
-    tracing_report("Memory controller initialized.\n");
+    tracing_report("Memory controller initialized");
 }
 
 // TODO: place this elsewhere
@@ -303,7 +298,7 @@ static void mem_channel_write(
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
 void memory_read(void *opaque, unsigned char *destination, uint64_t length, uint64_t address) {
-    tracing_report("Memory read: %lx @ %lx\n", length, address);
+    tracing_report("memory read: %lx @ %lx", length, address);
     MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;
@@ -363,7 +358,7 @@ void memory_read(void *opaque, unsigned char *destination, uint64_t length, uint
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
 void memory_write(void *opaque, unsigned char *source, uint64_t length, uint64_t address, bool _unused) {
-    tracing_report("Memory write: %lx @ %lx\n", length, address);
+    tracing_report("memory write: %lx @ %lx", length, address);
     MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;

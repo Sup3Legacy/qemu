@@ -25,7 +25,7 @@ static uint64_t mmio_mem_read(void *opaque, hwaddr addr, unsigned int size) {
 
     uint8_t bytes[8] = {0};
 
-    tracing_report("mmio read @%lx with size %x\n", addr, size);
+    tracing_report("mmio read @%lx with size %x", addr, size);
     
     // INFO: for now, only handle `data` read, not `instruction` ones
     (s->caches.read_fct)(s->caches.entry_point_data, bytes, size, addr);
@@ -43,7 +43,7 @@ static void mmio_mem_write(void *opaque, hwaddr addr, uint64_t val, unsigned int
 
     to_bytes(val, bytes);
 
-    tracing_report("mmio write @%lx with size %x\n", addr, size);
+    tracing_report("mmio write @%lx with size %x", addr, size);
 
     (s->caches.write_fct)(s->caches.entry_point_data, bytes, size, addr, s->caches.wp == WRITE_THROUGH);
 }

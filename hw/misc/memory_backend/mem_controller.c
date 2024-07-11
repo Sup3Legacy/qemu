@@ -298,7 +298,7 @@ static void mem_channel_write(
 //
 // CONTRACT: `address` has to be 8-byte aligned and `length` a multiple of 8
 void memory_read(void *opaque, unsigned char *destination, uint64_t length, uint64_t address) {
-    tracing_report("memory read: %lx @ %lx", length, address);
+    tracing_report("memory read: %lx @%lx", length, address);
     MemController *mc = opaque;
     MemCoords coords;
     uint8_t channel_idx;

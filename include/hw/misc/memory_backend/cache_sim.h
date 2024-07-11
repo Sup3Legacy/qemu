@@ -81,7 +81,7 @@ typedef struct {
 
     // Remember where this cache is located. Useful for tracing purposes
     CacheType type;
-    
+
     // Length is (size / (assoc * block_size))
     Set *sets;
 
@@ -125,7 +125,7 @@ typedef struct {
 
 // Returns a pointer to the string representing the cache level. Used for
 // tracing purposes
-static const char *cache_type_str(Cache *cache) {
+static inline const char *cache_type_str(Cache *cache) {
     switch (cache->type) {
         case TYPE_L1I:
             return "L1I";
@@ -217,7 +217,7 @@ typedef struct {
 
 Block *find_in_cache(Cache *cache, uint64_t address);
 
-static uint64_t block_base_from_address(uint64_t block_size_log2, uint64_t address) {
+static inline uint64_t block_base_from_address(uint64_t block_size_log2, uint64_t address) {
     // TODO: check this, I'm not that confident
     // NOTE: block_size is NOT in log2 form
     //return address & (~ (block_size - 1));
@@ -225,14 +225,14 @@ static uint64_t block_base_from_address(uint64_t block_size_log2, uint64_t addre
 }
 
 // Converts an `uint64_t` to an 8-long byte array
-static void to_bytes(uint64_t val, uint8_t *bytes) {
+static inline void to_bytes(uint64_t val, uint8_t *bytes) {
     for (int i = 0; i < 8; i++) {
         bytes[i] = (val >> (i * 8)) % (1 << 8);
     }
 }
 
 // Converts an 8-long byte array to an `uint64_t`
-static uint64_t from_bytes(uint8_t *bytes) {
+static inline uint64_t from_bytes(uint8_t *bytes) {
     uint64_t acc = 0;
     for (int i = 0; i < 8; i++) {
         acc = (acc << 8) + bytes[7 - i];
@@ -252,4 +252,3 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request);
 void flush_caches(CacheStruct *caches);
 
 #endif
-

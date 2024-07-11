@@ -69,7 +69,7 @@ static uint64_t *coords_to_ptr(MemChannel *ch, uint64_t rank, uint64_t bank, uin
 }
 
 // FIXME: bit/byte?
-static uint64_t *coords_to_ptr_channel(MemChannel *ch) {
+static inline uint64_t *coords_to_ptr_channel(MemChannel *ch) {
     return coords_to_ptr(ch, ch->selected_rank, ch->activated_bank, ch->selected_row, ch->current_column);
 }
 
@@ -80,6 +80,3 @@ static uint64_t *coords_to_ptr_channel(MemChannel *ch) {
 uint64_t memory_channel_instruct(MemChannel *ch, DDRMessage *msg);
 
 #endif
-
-
-

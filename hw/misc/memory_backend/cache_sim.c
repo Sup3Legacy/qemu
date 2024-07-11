@@ -136,7 +136,7 @@ static void free_and_flush_block(Cache *cache, Set *set, Block *block) {
         // cache line stays in cache at a lower level, it only needs to be
         // propagated down to that level. It will be propagated further down on
         // eviction of that line.
-        // 
+        //
         // The write policy is here hard-set to false as this branch cannot be
         // executed in a write-through context
         (cache->lower_write)(cache->lower_cache, block->data, cache->block_size, mem_address, false);
@@ -178,7 +178,7 @@ static Block *evict_and_free(Cache *cache, Set *set) {
             // even though the high-level cache behaviour is... weird
             evicted_block = &set->blocks[0];
             break;
-            
+
         // TODO: implement the other eviction policies
     }
 
@@ -337,6 +337,7 @@ static void cache_write(void *opaque, uint8_t *source, uint64_t length, uint64_t
 }
 
 // Mock memory backend read callback
+[[gnu::unused]]
 static void mem_read(void *opaque, uint8_t *destination, uint64_t length, uint64_t address) {
     MockMemBackend *mem = opaque;
 
@@ -356,6 +357,7 @@ static void mem_read(void *opaque, uint8_t *destination, uint64_t length, uint64
 }
 
 // Mock memory backend write callback
+[[gnu::unused]]
 static void mem_write(void *opaque, uint8_t *source, uint64_t length, uint64_t address, bool _is_write_through) {
     MockMemBackend *mem = opaque;
 
@@ -392,7 +394,7 @@ static int init_set(Cache *cache, Set *set, uint32_t set_id) {
     Block *blocks = g_malloc(cache->assoc * sizeof(Block));
     set->blocks = blocks;
 
-    if (!blocks) 
+    if (!blocks)
         return 1;
 
     for (int i = 0; i < cache->assoc; i++) {
@@ -431,7 +433,7 @@ static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_
     cache->number_of_sets = number_of_sets;
     cache->set_size = assoc * block_size;
     // TODO: log2s
-    
+
     cache->size_log2 = log2i(size);
     cache->assoc_log2 = log2i(assoc);
     cache->block_size_log2 = log2i(block_size);
@@ -440,13 +442,13 @@ static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_
     // Allocate bulk cache memory
     uint8_t *cache_memory = g_malloc(size);
     cache->cache_memory = cache_memory;
-    if (!cache_memory) 
+    if (!cache_memory)
         goto error;
 
     // Allcoate array of sets
     Set *sets = g_malloc(number_of_sets * sizeof(Set));
     cache->sets = sets;
-    if (!sets) 
+    if (!sets)
         goto error;
 
     // Init all sets
@@ -486,6 +488,7 @@ static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_
     return 1;
 }
 
+[[gnu::unused]]
 static int setup_mem_backend(MockMemBackend *mem, uint64_t size, uint64_t offset) {
     mem->size = size;
     mem->offset = offset;
@@ -654,7 +657,7 @@ int setup_caches(CacheStruct *caches, RequestedCaches *request) {
     //mc->topology.column_width = 1024;
     mc->topology.column_width = 1024;
     // mc->topology.topological_order = {Column, Row, Bank, Rank, Channel};
-    
+
     mc->topology.topological_order[0] = Column;
     mc->topology.topological_order[1] = Row;
     mc->topology.topological_order[2] = Bank;

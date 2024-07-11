@@ -16,7 +16,7 @@ typedef enum {
 } TopoType;
 
 // (Safely?) cast an integer to a `TopoType`.
-static TopoType topotype_from_int(uint8_t i) {
+static inline TopoType topotype_from_int(uint8_t i) {
     return (TopoType)i;
 }
 
@@ -73,7 +73,7 @@ typedef struct {
 } MemCoords;
 
 // Type of a DDR request
-// 
+//
 // This simulates a very simplified, functional version of the real requests as defined in the DDR spec.
 typedef enum {
     Activate,

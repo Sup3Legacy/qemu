@@ -18,7 +18,7 @@
 //
 //  `pulldowns` is a bitfield corresponding to the pins that should be shortcut
 //     to LOW -> active on 1. 
-typedef struct {
+typedef struct __attribute__((packed)) {
     uint64_t dq_pullups;
     uint64_t dq_pulldowns;
 

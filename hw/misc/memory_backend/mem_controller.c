@@ -185,6 +185,8 @@ static void mem_channel_read(
 
     // If we've switched to a different bank since the last time this channel
     // was used, send a `bank activate` request.
+    FaultModel *fm = &channel_controller->fault_model;
+    // printf("a %x ba %x dq %lx s %x\n", fm->a_pullups, fm->ba_pullups, fm->dq_pullups, fm->s_pullups);
     if (channel_controller->activated_bank != coords->bank) {
         msg.type = Activate;
         // TODO: fill-in the bank (and row?)

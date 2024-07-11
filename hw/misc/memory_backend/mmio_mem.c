@@ -227,19 +227,19 @@ static void mmio_fault_config_write(void *opaque, hwaddr addr, uint64_t val, uns
         FaultModel *fm = &s->caches.mem_controller.channels[s->selected_fault_model_index].fault_model;
         switch (size) {
             case 1:
-                uint8_t *ptr_8 = (uint8_t *)((size_t)fm + (addr - 8));
+                volatile uint8_t *ptr_8 = (uint8_t *)((size_t)fm + (addr - 8));
                 *ptr_8 = (uint8_t)val;
                 break;
             case 2:
-                uint16_t *ptr_16 = (uint16_t *)((size_t)fm + (addr - 8));
-                *ptr_16= (uint16_t)val;
+                volatile uint16_t *ptr_16 = (uint16_t *)((size_t)fm + (addr - 8));
+                *ptr_16 = (uint16_t)val;
                 break;
             case 4:
-                uint32_t *ptr_32 = (uint32_t *)((size_t)fm + (addr - 8));
+                volatile uint32_t *ptr_32 = (uint32_t *)((size_t)fm + (addr - 8));
                 *ptr_32 = (uint32_t)val;
                 break;
             case 8:
-                uint64_t *ptr_64 = (uint64_t *)((size_t)fm + (addr - 8));
+                volatile uint64_t *ptr_64 = (uint64_t *)((size_t)fm + (addr - 8));
                 *ptr_64 = (uint64_t)val;
                 break;
             default:

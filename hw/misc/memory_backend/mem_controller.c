@@ -93,6 +93,9 @@ static void mem_channel_controller_init(MemChannelController *mcc) {
         topo->ranks * topo->banks * topo->rows * topo->column_width;
 
     char *data_segment = g_malloc(mem_segment_size);
+    for (int i = 0; i < mem_segment_size; i++) {
+        data_segment[i] = 0x69;
+    }
     if (!data_segment) {
         tracing_report("Failed mem segment allocation.\n");
     }
@@ -196,7 +199,7 @@ static void mem_channel_read(
         msg.body.a = coords->row;
 
         // Apply the fault on the DDR request message
-        apply_fault_model_msg(&channel_controller->fault_model, &msg);
+        apply_fault_model_msg(fm, &msg);
 
         // send an Activate DDR request
         memory_channel_instruct(&channel_controller->channel, &msg);
@@ -215,7 +218,7 @@ static void mem_channel_read(
         // NOTE: the currently defined and implemented fault model is
         // involutive, so it's okay to apply the model multiple times on the
         // same request register.
-        apply_fault_model_msg(&channel_controller->fault_model, &msg);
+        apply_fault_model_msg(fm, &msg);
 
         uint64_t returned_value = memory_channel_instruct(&channel_controller->channel, &msg);
 

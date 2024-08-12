@@ -6,7 +6,7 @@
 
 // Returns the pointer to the set `address` belongs to within `cache`
 static Set *compute_set(Cache *cache, uint64_t address) {
-    uint64_t set_idx = (address >> (cache->assoc_log2 + cache->block_size_log2)) % cache->number_of_sets;
+    uint64_t set_idx = (address >> (cache->block_size_log2)) % cache->number_of_sets;
     Set *candidate_set = &cache->sets[set_idx];
 
     return candidate_set;
@@ -14,7 +14,7 @@ static Set *compute_set(Cache *cache, uint64_t address) {
 
 // Returns the tag corresponding to the address within `cache`
 static uint64_t compute_address_tag(Cache *cache, uint64_t address) {
-    return address >> (cache->block_size_log2);
+    return address >> (cache->block_size_log2 + cache->number_of_sets_log2);
 }
 
 // Find block associated with address in the cache
@@ -120,7 +120,7 @@ static Block *mru_evict(Cache *cache, Set *set) {
 }
 
 static void free_and_flush_block(Cache *cache, Set *set, Block *block) {
-    if (block->is_dirty) {
+    if (block->is_dirty || true) {
         // Block had been written to, change is held in cache
         // NOTE: This SHOULD NOT happen with WRITETHROUGH policy
         //       (because no block in a write-through cache can be marked dirty)
@@ -130,7 +130,14 @@ static void free_and_flush_block(Cache *cache, Set *set, Block *block) {
         uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
 
         // TODO: check that this is right
-        uint64_t mem_address = ((block->tag) + set_idx) << cache->block_size_log2;
+
+        uint64_t mem_address ;
+
+        if (cache->number_of_sets != 1) {
+            mem_address = ((block->tag << cache->number_of_sets_log2)  + set_idx) << cache->block_size_log2;
+        } else {
+            mem_address = (block->tag) << cache->block_size_log2;
+        }
 
         // NOTE: this might not trigger a write chain down to memory. If the
         // cache line stays in cache at a lower level, it only needs to be
@@ -336,46 +343,6 @@ static void cache_write(void *opaque, uint8_t *source, uint64_t length, uint64_t
     }
 }
 
-// Mock memory backend read callback
-[[gnu::unused]]
-static void mem_read(void *opaque, uint8_t *destination, uint64_t length, uint64_t address) {
-    MockMemBackend *mem = opaque;
-
-    tracing_report("Try and read from mem @%lx with size %lx.\n", address, length);
-    if (address < mem->offset) {
-        // Read below memory segment
-        tracing_report("Read below memory segment: %lx @%lx.\n", length, address);
-        return;
-    }
-    if (address + length >= mem->offset + mem->size) {
-        // Read over the memory segment
-        tracing_report("Read over memory segment: %lx @%lx.\n", length, address);
-        return;
-    }
-
-    memcpy(destination, (char *)(address - mem->offset + (uint64_t)(mem->data)), length);
-}
-
-// Mock memory backend write callback
-[[gnu::unused]]
-static void mem_write(void *opaque, uint8_t *source, uint64_t length, uint64_t address, bool _is_write_through) {
-    MockMemBackend *mem = opaque;
-
-    tracing_report("Try and write to mem @%lx with size %lx.\n", address, length);
-
-    if (address < mem->offset) {
-        // Write below memory segment
-        tracing_report("Write below memory segment: %lx @%lx.\n", length, address);
-        return;
-    }
-    if (address + length >= mem->offset + mem->size) {
-        // Write over the memory segment
-        tracing_report("Write over memory segment: %lx @%lx.\n", length, address);
-        return;
-    }
-    memcpy((char *)(address - mem->offset + (uint64_t)(mem->data)), source, length);
-}
-
 // Initializes block
 static void init_block(Cache *cache, Set *set, Block *block, uint32_t set_id, uint32_t block_id) {
     // Take pointer to cache memory at correct offset
@@ -411,7 +378,7 @@ static int init_set(Cache *cache, Set *set, uint32_t set_id) {
  */
 
 // TODO: not static
-static int setup_cache (Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc, ReplacementPolicy rp, void *lower_cache, lower_read_t lower_read, lower_write_t lower_write) {
+static int setup_cache(Cache *cache, uint64_t size, uint32_t block_size, uint8_t assoc, ReplacementPolicy rp, void *lower_cache, lower_read_t lower_read, lower_write_t lower_write) {
     cache->lower_cache = lower_cache;
     cache->lower_read = lower_read;
     cache->lower_write = lower_write;

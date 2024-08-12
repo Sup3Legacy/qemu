@@ -68,26 +68,48 @@ static uint64_t mmio_cache_config_read(void *opaque, hwaddr addr, unsigned int s
 }
 
 // Write to the configuration request of a single cache
-static void mmio_single_cache_config_write(SingleCacheConfigRequest *creq, hwaddr addr, uint64_t val) {
-    switch (addr) {
-        case 0:
-            creq->enable = ((val & 0xff) == 1);
+static void mmio_single_cache_config_write(SingleCacheConfigRequest *creq, hwaddr addr, uint64_t val, unsigned int size) {
+    switch (size) {
+        case 1:
+            volatile uint8_t *ptr_8 = (uint8_t *)((size_t)creq + addr);
+            *ptr_8 = (uint8_t)val;
+            break;
+        case 2:
+            volatile uint16_t *ptr_16 = (uint16_t *)((size_t)creq + addr);
+            *ptr_16 = (uint16_t)val;
             break;
         case 4:
-            creq->size = val;
+            volatile uint32_t *ptr_32 = (uint32_t *)((size_t)creq + addr);
+            *ptr_32 = (uint32_t)val;
             break;
         case 8:
-            creq->assoc = val;
+            volatile uint64_t *ptr_64 = (uint64_t *)((size_t)creq + addr);
+            *ptr_64 = (uint64_t)val;
             break;
-        case 12:
-            creq->block_size = val;
-            break;
+        default:
+            tracing_report("wrong size\n.");
     }
+    //switch (addr) {
+    //    case 0:
+    //        creq->enable = ((val & 0xff) == 1);
+    //        break;
+    //    case 4:
+    //        creq->size = val;
+    //        break;
+    //    case 8:
+    //        creq->assoc = val;
+    //        break;
+    //    case 12:
+    //        creq->block_size = val;
+    //        break;
+    //}
 }
 
 static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, unsigned int size) {
 	MMIOMemState *s = opaque;
     RequestedCaches *req = &s->cache_config_req;
+
+    tracing_report("Got cache config write, %lx @ %lu, size %u.\n", val, addr, size);
 
     switch (addr) {
         case 0:
@@ -121,16 +143,18 @@ static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, uns
             req->rp = (rp == 0 ? RANDOM : (rp == 1 ? LRU : MRU));
             break;
         case 32:
-            mmio_single_cache_config_write(&req->il1, addr - 20, val);
-            break;
-        case 48:
-            mmio_single_cache_config_write(&req->dl1, addr - 24, val);
+            tracing_report("l1 I.\n");
+            mmio_single_cache_config_write(&req->il1, addr - 32, val, size);
             break;
         case 64:
-            mmio_single_cache_config_write(&req->l2, addr - 28, val);
+            tracing_report("l1 D.\n");
+            mmio_single_cache_config_write(&req->dl1, addr - 64, val, size);
             break;
-        case 80:
-            mmio_single_cache_config_write(&req->l3, addr - 32, val);
+        case 96:
+            mmio_single_cache_config_write(&req->l2, addr - 96, val, size);
+            break;
+        case 128:
+            mmio_single_cache_config_write(&req->l3, addr - 128, val, size);
             break;
     }
 }
@@ -262,34 +286,30 @@ static RequestedCaches cache_request = {
     .mem_offset = 0,
     // .mem_offset = 0xfffff00,
     .wp = WRITE_BACK,
+    // WARN: Writethrough is currently broken
     //.wp = WRITE_THROUGH,
     .rp = RANDOM,
     .il1 = {
-        .size = 1 * 1024,
-        .assoc = 4,
-        .block_size = 64,
+        .size = 16,
+        .assoc = 1,
+        .block_size = 8,
     },
-    //.dl1 = {
-    //    .size = 1 * 1024,
-    //    .assoc = 4,
-    //    .block_size = 64,
-    //},
     .dl1 = {
-        .size = 2 * 64,
-        .assoc = 2,
-        .block_size = 64,
+        .size = 32,
+        .assoc = 1,
+        .block_size = 8,
     },
     .l2 = {
         .enable = true,
-        .size = 4 * 1024,
-        .assoc = 8,
-        .block_size = 128,
+        .size = 64,
+        .assoc = 2,
+        .block_size = 16,
     },
     .l3 = {
         .enable = true,
-        .size = 16 * 1024,
-        .assoc = 8,
-        .block_size = 256,
+        .size = 256,
+        .assoc = 2,
+        .block_size = 16,
     },
 };
 

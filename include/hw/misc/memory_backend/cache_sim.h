@@ -11,7 +11,7 @@ typedef unsigned __int128 uint128_t;
 #define RNG_a 75
 #define RNG_c 74
 #define RNG_m ((1 << 16) + 1)
-#define RNG_init 12321
+#define RNG_init 12341
 
 typedef void (*lower_read_t)(void *opaque, uint8_t *destination, uint64_t length, uint64_t address);
 typedef void (*lower_write_t)(void *opaque, uint8_t *source, uint64_t length, uint64_t address, bool write_through);
@@ -185,9 +185,12 @@ typedef struct {
 // Struct holding the requested configuration for a cache level
 typedef struct {
     bool enable;
+    uint8_t _pad0[7];
     uint64_t size;
     uint8_t assoc;
+    uint8_t _pad1[7];
     uint32_t block_size;
+    uint8_t _pad2[4];
 } SingleCacheConfigRequest;
 
 // Structure holding the cache model configuration requested from the guest

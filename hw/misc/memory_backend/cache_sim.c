@@ -120,7 +120,7 @@ static Block *mru_evict(Cache *cache, Set *set) {
 }
 
 static void free_and_flush_block(Cache *cache, Set *set, Block *block) {
-    if (block->is_dirty || true) {
+    if (block->is_dirty) {
         // Block had been written to, change is held in cache
         // NOTE: This SHOULD NOT happen with WRITETHROUGH policy
         //       (because no block in a write-through cache can be marked dirty)

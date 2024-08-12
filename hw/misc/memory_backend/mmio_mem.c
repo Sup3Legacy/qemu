@@ -303,13 +303,13 @@ static RequestedCaches cache_request = {
         .enable = true,
         .size = 64,
         .assoc = 2,
-        .block_size = 16,
+        .block_size = 8,
     },
     .l3 = {
         .enable = true,
         .size = 256,
         .assoc = 2,
-        .block_size = 16,
+        .block_size = 8,
     },
 };
 

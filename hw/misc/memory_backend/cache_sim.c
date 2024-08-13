@@ -129,15 +129,8 @@ static void free_and_flush_block(Cache *cache, Set *set, Block *block) {
         // We retreive the set index from the set pointer.
         uint64_t set_idx = ((uint64_t)set - (uint64_t)cache->sets) / sizeof(Set);
 
-        // TODO: check that this is right
-
-        uint64_t mem_address ;
-
-        if (cache->number_of_sets != 1) {
-            mem_address = ((block->tag << cache->number_of_sets_log2)  + set_idx) << cache->block_size_log2;
-        } else {
-            mem_address = (block->tag) << cache->block_size_log2;
-        }
+        uint64_t mem_address =
+            ((block->tag << cache->number_of_sets_log2)  + set_idx) << cache->block_size_log2;
 
         // NOTE: this might not trigger a write chain down to memory. If the
         // cache line stays in cache at a lower level, it only needs to be

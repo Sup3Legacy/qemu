@@ -301,7 +301,7 @@ static RequestedCaches cache_request = {
     },
     .l2 = {
         .enable = true,
-        .size = 64,
+        .size = 128,
         .assoc = 2,
         .block_size = 8,
     },

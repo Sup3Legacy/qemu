@@ -23,16 +23,15 @@ Block *find_in_cache(Cache *cache, uint64_t address) {
 
     Set *candidate_set = compute_set(cache, address);
 
+    candidate_set->mlru_gen_counter += 1;
     for (int i = 0; i < cache->assoc; i++) {
         Block *candidate_block = &candidate_set->blocks[i];
         if ((candidate_block->tag == address_tag) && (candidate_block->is_valid)) {
-            // TODO: Maybe we can update the MLRU generation here
-            //tracing_report("Found block of index %d, tag %ld, block_size_log2 %d, address %ld.\n", i, address_tag, cache->block_size_log2, address);
-            //tracing_report("assoc_log2 %d, size_log2 %d, block_size %d.\n", cache->assoc_log2, cache->size_log2, cache->block_size);
-            //tracing_report("truc %d.\n", log2i(64));
-
             // We have found the block; this is a hit
             cache->metrics.hits += 1;
+
+            // Update found block MLRU generation
+            candidate_block->mlru_gen = candidate_set->mlru_gen_counter;
 
             return candidate_block;
         }

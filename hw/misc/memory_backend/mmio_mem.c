@@ -142,20 +142,15 @@ static void mmio_cache_config_write(void *opaque, hwaddr addr, uint64_t val, uns
             char rp = val & 0xff;
             req->rp = (rp == 0 ? RANDOM : (rp == 1 ? LRU : MRU));
             break;
-        case 32:
-            tracing_report("l1 I.\n");
-            mmio_single_cache_config_write(&req->il1, addr - 32, val, size);
-            break;
-        case 64:
-            tracing_report("l1 D.\n");
-            mmio_single_cache_config_write(&req->dl1, addr - 64, val, size);
-            break;
-        case 96:
-            mmio_single_cache_config_write(&req->l2, addr - 96, val, size);
-            break;
-        case 128:
-            mmio_single_cache_config_write(&req->l3, addr - 128, val, size);
-            break;
+    }
+    if (addr >= 32 && addr < 64) {
+        mmio_single_cache_config_write(&req->il1, addr - 32, val, size);
+    } else if (addr >= 64 && addr < 96) {
+        mmio_single_cache_config_write(&req->dl1, addr - 64, val, size);
+    } else if (addr >= 96 && addr < 128) {
+        mmio_single_cache_config_write(&req->l2, addr - 96, val, size);
+    } else if (addr >= 128 && addr < 160) {
+        mmio_single_cache_config_write(&req->l3, addr - 128, val, size);
     }
 }
 

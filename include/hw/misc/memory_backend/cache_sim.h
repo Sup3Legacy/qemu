@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include "qom/object.h"
 #include "hw/misc/memory_backend/mem_controller.h"
+#include "hw/misc/memory_backend/shared.h"
 
 typedef unsigned __int128 uint128_t;
 
@@ -182,16 +183,6 @@ typedef struct {
     lower_write_t write_fct;
 } CacheStruct;
 
-// Struct holding the requested configuration for a cache level
-typedef struct {
-    bool enable;
-    uint8_t _pad0[7];
-    uint64_t size;
-    uint8_t assoc;
-    uint8_t _pad1[7];
-    uint32_t block_size;
-    uint8_t _pad2[4];
-} SingleCacheConfigRequest;
 
 // Structure holding the cache model configuration requested from the guest
 // kernel

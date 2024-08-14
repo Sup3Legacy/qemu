@@ -82,7 +82,7 @@ static Block *random_evict(Cache *cache, Set *set) {
 // Also tick an mlru gen and update this block's counter
 static Block *lru_evict(Cache *cache, Set *set) {
     Block *min_gen_block = NULL;
-    uint128_t min_gen = -1;
+    uint128_t min_gen = UINT128_MAX;
 
     for (int i = 0; i < cache->assoc; i++) {
         if (set->blocks[i].mlru_gen < min_gen) {
